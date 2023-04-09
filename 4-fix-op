@@ -1,0 +1,38 @@
+#!/bin/sh
+[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+
+# 主题：修复 MacOS Chrome 退出按钮图标错误
+sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css
+sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/less/cascade.less
+sed -i "s/'menu' : null/'menu' : 'food'/" package/luci-theme-argon/htdocs/luci-static/resources/menu-argon.js
+sed -i 's#openwrt/luci#Yonsm#' package/luci-theme-argon/luasrc/view/themes/argon/footer.htm
+
+# 默认语言：中文
+sed -i 's/LUCI_DEPENDS:= \\/LUCI_DEPENDS:=+@LUCI_LANG_zh_Hans \\/' feeds/luci/collections/luci/Makefile
+
+# DOCKER：修复 22.03.3 引入的问题: https://github.com/openwrt/luci/issues/6168
+#rm -rf feeds/luci/applications/luci-app-dockerman
+#svn export https://github.com/lisaac/luci-app-dockerman/trunk/applications/luci-app-dockerman feeds/luci/applications/luci-app-dockerman
+sed -i 's/alias("admin", "docker", "config")/firstchild()/' feeds/luci/applications/luci-app-dockerman/luasrc/controller/dockerman.lua
+
+# 菜单调整
+# sed -i 's/services/nas/g' feeds/luci/applications/luci-app-aria2/root/usr/share/luci/menu.d/luci-app-aria2.json
+# sed -i 's/services/nas/g' feeds/luci/applications/luci-app-hd-idle/root/usr/share/luci/menu.d/luci-app-hd-idle.json
+# sed -i 's/services/nas/g' feeds/luci/applications/luci-app-samba4/root/usr/share/luci/menu.d/luci-app-samba4.json
+# sed -i 's/services/nas/g' /root/usr/share/luci/menu.d/luci-app-ksmbd.json
+sed -i 's/59/20/' feeds/luci/applications/luci-app-ddns/root/usr/share/luci/menu.d/luci-app-ddns.json
+sed -i '/order/d' feeds/luci/applications/luci-app-xfrpc/root/usr/share/luci/menu.d/luci-app-xfrpc.json; sed -i 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' feeds/luci/applications/luci-app-xfrpc/root/usr/share/luci/menu.d/luci-app-xfrpc.json
+sed -i '/order/d' feeds/luci/applications/luci-app-upnp/root/usr/share/luci/menu.d/luci-app-upnp.json; sed -i 's/"title": "UPnP",/"title": "UPnP",\n\t\t"order": 22,/' feeds/luci/applications/luci-app-upnp/root/usr/share/luci/menu.d/luci-app-upnp.json
+sed -i '/order/d' feeds/luci/applications/luci-app-uhttpd/root/usr/share/luci/menu.d/luci-app-uhttpd.json; sed -i 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' feeds/luci/applications/luci-app-uhttpd/root/usr/share/luci/menu.d/luci-app-uhttpd.json
+sed -i 's/services/network/g' feeds/luci/applications/luci-app-wifischedule/luasrc/controller/wifischedule/wifi_schedule.lua
+
+# 文案调整
+sed -i 's/<abbr title=\\"发光二极管\\">LED<\/abbr> 配置/灯光配置/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
+sed -i 's/"LED 配置"/"灯光配置"/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
+sed -i 's/备份与升级/备份升级/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
+
+sed -i 's/msgstr "路由"/msgstr "路由规则"/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
+sed -i 's/"防火墙"/"防火长城"/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
+
+sed -i 's/"防火墙"/"防火长城"/' feeds/luci/applications/luci-app-firewall/po/zh_Hans/firewall.po
+sed -i 's/msgstr "Aria2"/msgstr "下载工具"/' feeds/luci/applications/luci-app-aria2/po/zh_Hans/aria2.po

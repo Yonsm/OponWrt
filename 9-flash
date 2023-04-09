@@ -1,0 +1,41 @@
+#!/bin/sh
+[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+
+if [ -z "$1" ] || [ ${1:0:1} == - ]; then
+	Router=Router
+	ARGS="$1"
+else 
+	Router="$1"
+	ARGS="$2"
+fi
+
+ARCH=`ssh $Router "cat /etc/os-release|grep OPENWRT_BOARD|cut -d '\"' -f2"`
+[ -z "$ARCH" ] && echo Could not get /etc/os-release on $Router && exit
+
+if [ $ARCH == x86/64 ]; then
+	# 1. EFI 500M VFAT /boot
+	# 2. MSR 100M NONE 
+	# 3. WIN  80G NTFS /win
+	# 4. DAT ...G NTFS /dat
+	# 5. OPT   8G EXT4 /opt
+	# 6. WRT   2G EXT4 /
+	# 7. WRT2  2G EXT2 /wrt
+	DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
+	[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
+	[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
+	scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/boot/$VMLINUZ &&
+	scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz &&
+	ssh $Router "rm -rf /wrt/*; cd /wrt && tar -xzf /tmp/rootfs.tar.gz && sync" # && cd /tmp && umount /wrt && reboot2
+elif [ $ARCH == armvirt/64 ]; then
+	# https://github.com/unifreq/openwrt_packit
+	ROOT=`ssh $Router "grep root= /boot/uEnv.txt | cut -d ' ' -f1 |cut -d '=' -f3"`
+	[ -z "$ROOT" ] && echo "Could not read /boot/uEnv.txt" && exit
+	[ $ROOT == /dev/mmcblk2p3 ] && ROOTFS=mmcblk2p2 || ROOTFS=mmcblk2p3
+	scp bin/targets/armvirt/64/openwrt-armvirt-64-default-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz &&
+	ssh $Router "rm -rf /mnt/$ROOTFS/*; cd /mnt/$ROOTFS && tar -xzf /tmp/rootfs.tar.gz && sync"  # && cd /tmp && umount /mnt/$ROOTFS && reboot2
+else
+	BOARD=`ssh $Router "cat /etc/board.json|grep id|cut -d '\"' -f4"`
+	[ -z $BOARD ] && echo Could not get /etc/board.json on $Router && exit
+	BIN=`ls bin/targets/$ARCH/openwrt-${ARCH/\//-}-${BOARD/,/_}-*-sysupgrade.bin` &&
+	scp -O $BIN $Router:/tmp/sysupgrade.bin && ssh $Router "sysupgrade $ARGS /tmp/sysupgrade.bin"
+fi

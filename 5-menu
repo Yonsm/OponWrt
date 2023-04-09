@@ -1,0 +1,211 @@
+#!/bin/sh
+[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+
+if [ ! -z $1 ]; then
+	if [ -d package/lean ]; then LEAN=-lean; else LEAN=; fi
+	CONFIG=${0%/*}/.config$LEAN/$1
+	ln -sf $CONFIG .config
+
+	USB=1
+	[[ $1 = *\+WIFI* ]] && WIFI=1 || WIFI=0
+	[[ $1 = *\+HASS* ]] && HASS=1 || HASS=0
+	[[ $1 = *\+DOCKER* ]] && DOCKER=1 || DOCKER=0
+
+	[[ $1 = *\+NTFS3G* ]] && NTFS3G=1 || NTFS3G=0
+	[[ $1 = *\+SAMBA4* ]] && SAMBA4=1 || SAMBA4=0
+	[[ $1 = *\+FIREWALL3* ]] && FIREWALL3=1 || FIREWALL3=0
+
+	case "$1" in
+	CM520*)
+		MAGIC=dbe3401f809fe7ca08f8fcc087584e8d
+		BOARD=ipq40xx
+		TARGET=generic
+		DEVICE=DEVICE_mobipromo_cm520-79f
+		;;
+	K2P*|C5*|NEWIFI3*)
+		MAGIC=2974fbe1fa59be88f13eb8abeac8c10b
+		BOARD=ramips
+		TARGET=mt7621
+		case "$1" in
+			K2P*) DEVICE=DEVICE_phicomm_k2p; [[ $1 != *\+USB* ]] && USB=0;;
+			C5*) DEVICE=DEVICE_xiaoyu_xy-c5;;
+			NEWIFI3*) DEVICE=DEVICE_d-team_newifi-d2;;
+		esac
+		;;
+	Y1*)
+		MAGIC=88bbb0b8c80abf953ee5e7001a2ef514
+		BOARD=ramips
+		TARGET=mt7620
+		DEVICE=DEVICE_lenovo_newifi-y1
+		;;
+	RMAX6000*)
+		MAGIC=88bbb0b8c80abf953ee5e7001a2ef514
+		BOARD=mediatek
+		TARGET=filogic
+		DEVICE=DEVICE_xiaomi_redmi-router-ax6000-stock
+		USB=0
+		;;
+	N1*)
+		MAGIC=792961e60be5b4e3cd770ee7bc8d3587
+		BOARD=armvirt
+		TARGET=64
+		DEVICE=Default
+		;;
+	X64*)
+		MAGIC=9309db0b721b9fb3fe826181264a78c4
+		BOARD=x86
+		TARGET=64
+		DEVICE=DEVICE_generic
+		;;
+	*)
+		MAGIC=00000000000000000000000000000000
+		DEVICE=
+		[[ $1 != *\+USB* ]] && USB=0
+		;;
+	esac
+
+	echo $MAGIC > .vermagic
+
+	if [ ! -f $CONFIG ] || [ "$2" == "-f" ]; then
+		cat <<EOF > $CONFIG
+# CONFIG_PACKAGE_mkf2fs is not set
+# CONFIG_PACKAGE_dnsmasq is not set
+# CONFIG_PACKAGE_mdadm is not set
+CONFIG_PACKAGE_dnsmasq-full=y
+CONFIG_PACKAGE_htop=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-app-commands=y
+CONFIG_PACKAGE_luci-app-ddns=y
+CONFIG_PACKAGE_luci-app-ssr-plus=y
+CONFIG_PACKAGE_luci-app-uhttpd=y
+CONFIG_PACKAGE_luci-app-upnp=y
+CONFIG_PACKAGE_luci-app-xfrpc=y
+CONFIG_PACKAGE_luci-theme-argon=y
+CONFIG_PACKAGE_ddns-scripts-dnspod=y
+CONFIG_PACKAGE_openssh-sftp-server=y
+CONFIG_PACKAGE_iperf3=y
+EOF
+
+		[ $FIREWALL3 == 1 ] && cat <<EOF >> $CONFIG
+# CONFIG_PACKAGE_firewall4 is not set
+CONFIG_PACKAGE_firewall=y
+EOF
+
+		if [ $USB == 1 ]; then
+			cat <<EOF >> $CONFIG
+CONFIG_PACKAGE_block-mount=y
+CONFIG_PACKAGE_kmod-fs-exfat=y
+CONFIG_PACKAGE_kmod-fs-ext4=y
+CONFIG_PACKAGE_kmod-fs-vfat=y
+CONFIG_PACKAGE_kmod-nls-cp936=y
+CONFIG_PACKAGE_kmod-usb-storage=y
+CONFIG_PACKAGE_luci-app-aria2=y
+CONFIG_PACKAGE_luci-app-hd-idle=y
+CONFIG_PACKAGE_ariang=y
+CONFIG_PACKAGE_blkid=y
+CONFIG_PACKAGE_eject=y
+CONFIG_PACKAGE_hdparm=y
+CONFIG_PACKAGE_tune2fs=y
+CONFIG_PACKAGE_fdisk=y
+CONFIG_PACKAGE_`[ $NTFS3G == 1 ] && echo ntfs-3g-utils || echo ntfs3-mount`=y
+EOF
+
+		if [ $SAMBA4 == 1 ]; then
+			echo "CONFIG_PACKAGE_luci-app-samba4=y" >> $CONFIG
+		else
+			echo "CONFIG_PACKAGE_luci-app-ksmbd=y" >> $CONFIG
+			echo "CONFIG_PACKAGE_ksmbd-avahi-service=y" >> $CONFIG
+			echo "CONFIG_PACKAGE_ksmbd-utils=y" >> $CONFIG
+		fi
+fi
+
+		[ $HASS == 1 ] && cat <<EOF >> $CONFIG
+CONFIG_PACKAGE_mosquitto-client-nossl=y
+CONFIG_PACKAGE_mosquitto-nossl=y
+CONFIG_PACKAGE_python3-pip=y
+CONFIG_PACKAGE_python3-dev=y
+CONFIG_PACKAGE_gcc=y
+CONFIG_PACKAGE_ffmpeg=y
+EOF
+# Error: CONFIG_PACKAGE_python3-cffi=y
+
+		[ $DOCKER == 1 ] && cat <<EOF >> $CONFIG
+CONFIG_PACKAGE_luci-app-dockerman=y
+CONFIG_PACKAGE_dockerd=y
+EOF
+
+		[ ! -z $DEVICE ] && cat <<EOF >> $CONFIG
+CONFIG_TARGET_${BOARD}=y
+CONFIG_TARGET_${BOARD}_${TARGET}=y
+CONFIG_TARGET_${BOARD}_${TARGET}_${DEVICE}=y
+EOF
+
+		[ -d /Library/Apple ] && cat <<EOF >> $CONFIG
+CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/local/go/bin"
+EOF
+
+		[[ $1 = N1* ]]  && cat <<EOF >> $CONFIG
+# CONFIG_TARGET_ROOTFS_CPIOGZ is not set
+# CONFIG_TARGET_ROOTFS_EXT4FS is not set
+# CONFIG_TARGET_ROOTFS_SQUASHFS is not set
+# CONFIG_DEFAULT_mtd is not set
+CONFIG_BRCMFMAC_SDIO=y
+# CONFIG_BRCMFMAC_USB is not set
+# CONFIG_BRCMFMAC_PCIE is not set
+CONFIG_BTRFS_PROGS_ZSTD=y
+CONFIG_PACKAGE_kmod-usb2=y
+CONFIG_PACKAGE_kmod-usb-net=y
+CONFIG_PACKAGE_kmod-brcmfmac=y
+CONFIG_PACKAGE_kmod-mac80211=y
+CONFIG_PACKAGE_hostapd-common=y
+CONFIG_PACKAGE_wpa-cli=y
+CONFIG_PACKAGE_wpad-basic=y
+CONFIG_PACKAGE_iw=y
+CONFIG_PACKAGE_btrfs-progs=y
+EOF
+
+		[[ $1 = X64* ]] && cat <<EOF >> $CONFIG
+# CONFIG_TARGET_ROOTFS_SQUASHFS is not set
+# CONFIG_GRUB_IMAGES is not set
+# CONFIG_PACKAGE_mtd is not set
+CONFIG_GRUB_TIMEOUT="2"
+CONFIG_TARGET_ROOTFS_PARTSIZE=400
+CONFIG_PACKAGE_kmod-usb2=y
+CONFIG_PACKAGE_kmod-usb3=y
+# CONFIG_PACKAGE_kmod-amazon-ena is not set
+# CONFIG_PACKAGE_kmod-amd-xgbe is not set
+# CONFIG_PACKAGE_kmod-bnx2 is not set
+CONFIG_PACKAGE_kmod-e1000=y
+# CONFIG_PACKAGE_kmod-e1000e is not set
+# CONFIG_PACKAGE_kmod-forcedeth is not set
+# CONFIG_PACKAGE_kmod-igb is not set
+CONFIG_PACKAGE_kmod-igc=y
+# CONFIG_PACKAGE_kmod-ixgbe is not set
+# CONFIG_PACKAGE_kmod-phy-realtek is not set
+# CONFIG_PACKAGE_kmod-r8169 is not set
+# CONFIG_PACKAGE_kmod-tg3 is not set
+CONFIG_PACKAGE_lm-sensors=y
+EOF
+	fi
+
+	# 避免 macOS X64 编译错误
+	if [ -d /Library/Apple ]; then
+		sed -i 's/libpthread +zlib/libpthread +libintl-full +zlib/' feeds/packages/lang/python/python3/Makefile
+		if [[ $1 = X64* ]]; then
+			sed -i 's/= +libnettle/= +libintl-full +libnettle/' feeds/packages/libs/gnutls/Makefile
+			sed -i 's/$(INTL_DEPENDS)/+libintl-full/' feeds/packages/net/ksmbd-tools/Makefile
+			sed -i 's/-liconv $(if $(INTL_FULL),-lintl)/-liconv -lintl/' feeds/packages/net/ksmbd-tools/Makefile
+		else
+			sed -i 's/= +libintl-full +libnettle/= +libnettle/' feeds/packages/libs/gnutls/Makefile
+			sed -i 's/+libintl-full/$(INTL_DEPENDS)/' feeds/packages/net/ksmbd-tools/Makefile
+			sed -i 's/-liconv -lintl/-liconv $(if $(INTL_FULL),-lintl)/' feeds/packages/net/ksmbd-tools/Makefile
+			#sed -i 's/libpthread +libintl-full +zlib/libpthread +zlib/' feeds/packages/lang/python/python3/Makefile
+		fi
+	fi
+
+	# 
+	rm -rf files
+	[[ $1 = N1* ]] && ln -sf ${0%/*}/n1-files files
+fi
+
+make menuconfig

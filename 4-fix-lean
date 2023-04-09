@@ -1,0 +1,63 @@
+#!/bin/sh
+[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+
+# 内核
+sed -i 's/KERNEL_PATCHVER:=6.1/KERNEL_PATCHVER:=5.15/' target/linux/x86/Makefile
+
+# Packages
+sed -i 's/luci-app-autoreboot//' include/target.mk
+sed -i 's/luci-app-arpbind luci-app-filetransfer luci-app-vsftpd luci-app-ssr-plus luci-app-vlmcsd/luci-theme-argon-mod luci-app-commands luci-app-ssr-plus/' include/target.mk
+sed -i 's/luci-app-accesscontrol luci-app-nlbwmon luci-app-turboacc luci-app-wol/htop openssh-sftp-server iperf3 tcpdump/' include/target.mk
+sed -i 's/mdadm/mdadm eject hdparm parted dosfstools e2fsprogs resize2fs tune2fs luci-app-aria2 luci-app-diskman luci-app-hd-idle luci-app-samba4/' include/target.mk
+
+# 版本
+sed -i 's/%D %V %C/%D Master/' package/base-files/files/etc/openwrt_release
+sed -i 's/%R/R23/' package/base-files/files/etc/openwrt_release
+sed -i 's#openwrt/luci#Yonsm#' feeds/luci/themes/luci-theme-argon-mod/luasrc/view/themes/argon/footer.htm
+
+#  默认设置
+sed -i '/option Interface/d' package/network/services/dropbear/files/dropbear.config
+cat <<\EOF > package/lean/default-settings/files/zzz-default-settings
+#!/bin/sh
+exit 0
+EOF
+
+# 菜单调整
+sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-aria2/luasrc/controller/aria2.lua
+sed -i 's/services/nas/' feeds/luci/applications/luci-app-aria2/luasrc/view/aria2/overview_status.htm
+sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-hd-idle/luasrc/controller/hd_idle.lua
+sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-samba/luasrc/controller/samba.lua
+sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-samba4/luasrc/controller/samba4.lua
+#sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-transmission/luasrc/controller/transmission.lua
+#sed -i 's/"services"/"network"/g' feeds/luci/applications/luci-app-wifischedule/luasrc/controller/wifischedule/wifi_schedule.lua
+
+sed -i 's/"system"/"nas"/g' feeds/luci/applications/luci-app-diskman/luasrc/controller/diskman.lua
+sed -i 's/system\/diskman/nas\/diskman/g' feeds/luci/applications/luci-app-diskman/luasrc/view/diskman/disk_info.htm
+sed -i 's/system\/diskman/nas\/diskman/g' feeds/luci/applications/luci-app-diskman/luasrc/view/diskman/partition_info.htm
+sed -i 's/"system"/"nas"/' feeds/luci/applications/luci-app-diskman/luasrc/view/diskman/smart_detail.htm
+sed -i 's/system\/diskman/nas\/diskman/g' feeds/luci/applications/luci-app-diskman/luasrc/model/cbi/diskman/btrfs.lua
+sed -i 's/system\/diskman/nas\/diskman/g' feeds/luci/applications/luci-app-diskman/luasrc/model/cbi/diskman/disks.lua
+sed -i 's/system\/diskman/nas\/diskman/g' feeds/luci/applications/luci-app-diskman/luasrc/model/cbi/diskman/partition.lua
+
+# 文案
+sed -i 's/<abbr title=\\"Light Emitting Diode\\">LED<\/abbr> 配置/灯光配置/' feeds/luci/modules/luci-base/po/zh-cn/base.po
+sed -i ':a;N;s/msgid "Hostnames"\nmsgstr "主机名"/msgid "Hostnames"\nmsgstr "主机名称"/;$!ba' feeds/luci/modules/luci-base/po/zh-cn/base.po
+sed -i 's/备份\/升级/备份升级/' feeds/luci/modules/luci-base/po/zh-cn/base.po
+
+sed -i -e 's/"防火墙"/"防火长城"/' -e 's/"Firewall"/"Firewalls"/' feeds/luci/applications/luci-app-firewall/po/zh-cn/firewall.po
+sed -i 's/"Firewall"/"Firewalls"/' feeds/luci/applications/luci-app-firewall/luasrc/controller/firewall.lua
+sed -i 's/Aria2 配置/下载工具/' feeds/luci/applications/luci-app-aria2/po/zh-cn/aria2.po
+sed -i 's/TTYD 终端/仿终端/' feeds/luci/applications/luci-app-ttyd/po/zh-cn/terminal.po
+
+sed -i 's/"CPU 性能优化调节"/"性能调节"/' feeds/luci/applications/luci-app-cpufreq/po/zh-cn/cpufreq.po
+sed -i "s/Argon 主题设置/主题设置/" feeds/luci/applications/luci-app-argon-config/po/zh-cn/argon-config.po
+sed -i 's/Turbo ACC 网络加速/网络加速/' feeds/luci/applications/luci-app-turboacc/po/zh-cn/turboacc.po
+
+grep 专网 package/lean/default-settings/po/zh-cn/default.po || cat <<\EOF >> package/lean/default-settings/po/zh-cn/default.po
+
+msgid "NAS"
+msgstr "存储"
+
+msgid "VPN"
+msgstr "专网"
+EOF

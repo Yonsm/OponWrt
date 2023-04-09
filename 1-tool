@@ -1,0 +1,27 @@
+#!/bin/sh
+
+if [ -d /Library/Apple ]; then
+	# macOS
+	[ ! -f /usr/local/bin/brew ] && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+	if [ ! -d /usr/local/opt/coreutils/libexec/gnubin ]; then
+		[ -d /usr/local/Cellar/awk ] && brew unlink awk
+		brew install svn coreutils diffutils findutils gawk gnu-getopt gnu-tar grep make ncurses pkg-config wget quilt xz gcc@11 sdl2 go
+	fi
+
+	sed -i '/gnubin/d' ~/.zshrc
+	echo 'export PATH="/usr/local/opt/make/libexec/gnubin:/usr/local/opt/gnu-sed/libexec/gnubin:/usr/local/opt/grep/libexec/gnubin:/usr/local/opt/gnu-tar/libexec/gnubin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/findutils/libexec/gnubin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> ~/.zshrc
+	[ -f /etc/paths.d/com.vmware.fusion.public ] && sudo rm /etc/paths.d/com.vmware.fusion.public
+
+	SHRC=.zshrc
+else
+	# Ubuntu 22
+	sudo apt update -y
+	sudo apt upgrade -y
+	sudo apt apt install subversion build-essential clang flex g++ gawk gcc-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
+	SHRC=.bashrc
+fi
+
+CDIR=$(cd "${0%/*}"; pwd)
+sed -i '/OpenWrt/d' ~/$SHRC
+echo "export PATH=\"$CDIR:\$PATH\"" >> ~/$SHRC
+source ~/$SHRC

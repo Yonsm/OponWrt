@@ -1,0 +1,10 @@
+#!/bin/sh
+[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+
+if [ -z $1 ]; then
+	echo $0 clean: 仅清理编译结果（bin 目录）
+	echo $0 dirclean: 清理所有编译文件（除了 .config、dl 文件夹和 feeds 以外都清理）
+	echo $0 distclean: 清理所有编译文件以及相关依赖（完全清理干净，一键回到刚 git clone 下来的时候）
+else
+	make $1
+fi
