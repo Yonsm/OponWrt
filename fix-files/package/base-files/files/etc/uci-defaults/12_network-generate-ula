@@ -1,0 +1,19 @@
+grep poweroff /etc/config/luci >/dev/null || cat <<\EOF >>/etc/config/luci
+
+config command
+	option name '关闭系统'
+	option command 'poweroff'
+
+config command
+	option name '网络接口'
+	option command 'ifconfig'
+EOF
+
+[ "$(uci -q get network.globals.ula_prefix)" != "auto" ] && exit 0
+
+uci -q batch <<\EOF >/dev/null
+	set network.globals.ula_prefix=fd00::/48
+	commit network
+EOF
+
+exit 0

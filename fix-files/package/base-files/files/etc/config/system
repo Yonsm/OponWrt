@@ -1,0 +1,12 @@
+config system
+	option timezone 'CST-8'
+	option zonename 'Asia/Shanghai'
+	option hostname 'Router'
+	option description 'OpenWrt Router'
+	option conloglevel '6'
+	option cronloglevel '8'
+
+config timeserver 'ntp'
+	list server 'ntp.aliyun.com'
+	list server 'cn.pool.ntp.org'
+	list server 'time.ustc.edu.cn'

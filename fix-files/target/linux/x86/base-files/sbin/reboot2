@@ -1,0 +1,15 @@
+if [ -f /boot/grub/grub.cfg ]; then
+	if [ ! -z $1 ]; then
+		EXP=$1
+	elif grep 'default="0"' /boot/grub/grub.cfg > /dev/null; then
+		EXP=1
+	else       
+		EXP=0
+	fi
+	sed -i "s/default=\".*\"/default=\"$EXP\"/" /boot/grub/grub.cfg
+else
+	echo "/boot/grub/grub.cfg not found"
+	exit
+fi
+echo Boot to $EXP
+reboot

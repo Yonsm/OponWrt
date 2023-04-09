@@ -1,0 +1,16 @@
+#!/bin/sh
+while read SRC; do
+	DST=/opt${SRC%/*}/
+	[ ! -d $DST ] && mkdir -p $DST
+	cp $SRC $DST
+done <<\EOF
+/etc/config/*
+/etc/dropbear/authorized_keys
+/etc/samba/smb.conf.template
+/etc/samba/smbpasswd
+/etc/passwd
+/etc/shadow
+/etc/uhttpd.crt
+/etc/uhttpd.key
+/etc/rc.local
+EOF
