@@ -1,0 +1,33 @@
+# Soft dependencies extracted from modules themselves.
+softdep cifs ecb
+softdep cifs hmac
+softdep cifs md5
+softdep cifs nls
+softdep cifs aes
+softdep cifs cmac
+softdep cifs sha256
+softdep cifs sha512
+softdep cifs aead2
+softdep cifs ccm
+softdep cifs gcm
+softdep ksmbd pre: ecb
+softdep ksmbd pre: hmac
+softdep ksmbd pre: md4
+softdep ksmbd pre: md5
+softdep ksmbd pre: nls
+softdep ksmbd pre: aes
+softdep ksmbd pre: cmac
+softdep ksmbd pre: sha256
+softdep ksmbd pre: sha512
+softdep ksmbd pre: aead2
+softdep ksmbd pre: ccm
+softdep ksmbd pre: gcm
+softdep ksmbd pre: crc32
+softdep spi_pxa2xx_platform pre: dw_dmac
+softdep ohci_pci pre: ehci_pci
+softdep uhci_hcd pre: ehci_pci
+softdep act_mpls post: mpls_gso
+softdep xt_LOG pre: nf_log_syslog
+softdep xt_NFLOG pre: nfnetlink_log
+softdep xt_TRACE pre: nf_log_syslog
+softdep mpls_iptunnel post: mpls_gso

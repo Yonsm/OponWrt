@@ -1,0 +1,13 @@
+if [ -f /boot/uEnv.txt ]; then
+	if grep 'mmcblk2p3' /boot/uEnv.txt > /dev/null; then
+		EXP=2
+	else
+		EXP=3
+	fi
+	sed -i "s|root=.* rootfs|root=/dev/mmcblk2p${EXP} rootfs|" /boot/uEnv.txt
+else
+	echo "/boot/uEnv.txt not found"
+	exit
+fi
+echo Boot to $EXP
+reboot
