@@ -1,7 +1,6 @@
 #!/bin/sh
-[ -d /Library/Apple ] && cd /Volumes/OpenWrt
 
-if [ $ == lede ]; then
+if [ "$1" == "lede" ]; then
 	git clone https://github.com/coolsnowwolf/lede
 	cd lede
 else
@@ -12,33 +11,47 @@ fi
 
 ./scripts/feeds update -a
 
-if [ $ == lede ]; then
+if [ "$1" == "lede" ]; then
 	# 修复 GCC 编译不成功的问题
 	rm -rf feeds/packages/devel/gcc
 	svn export https://github.com/openwrt/packages/trunk/devel/gcc feeds/packages/devel/gcc
 
-	# 添加 XFRPC
+	# XFRPC
 	rm -rf feeds/luci/applications/luci-app-xfrpc
 	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
 	rm -rf feeds/packages/net/xfrpc
 	svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
+
+	# KSMBD
+	rm -rf feeds/luci/applications/luci-app-ksmbd
+	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-ksmbd feeds/luci/applications/luci-app-ksmbd
 else
 	# NTFS3 驱动
 	git clone https://github.com/xymopen/openwrt-ntfs3 package/openwrt-ntfs3
+	sed -i 's/ntfs3 "/ntfs3 -o iocharset=utf8 "/' package/openwrt-ntfs3/utils/ntfs3-mount/files/mount.ntfs
 
 	# 星际宝盒：支持 opboot 下的分区布局
 	curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
 	curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
 
-	# 支持 Redmi AX6000
-	svn export https://github.com/openwrt/openwrt/trunk/target/linux/mediatek/filogic target/linux/mediatek/filogic
-	sed -i 's/=mt7622/=filogic mt7622/' target/linux/mediatek/Makefile
-	curl -o package/boot/uboot-envtools/files/mediatek_filogic https://raw.githubusercontent.com/openwrt/openwrt/master/package/boot/uboot-envtools/files/mediatek_filogic
-	curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts
-	curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
-	curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
-	curl -o target/linux/mediatek/image/filogic.mk https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/image/filogic.mk
-	ln -s config-5.15 target/linux/mediatek/filogic/config-5.10
+	# 升级 SAMBA4 并修复 macOS  编译问题
+	rm -rf feeds/packages/net/samba4
+	svn export https://github.com/coolsnowwolf/packages/trunk/net/samba4 feeds/packages/net/samba4
+
+	# TODO: 支持 Redmi AX6000
+	# svn export https://github.com/openwrt/openwrt/trunk/target/linux/mediatek/filogic target/linux/mediatek/filogic
+	# sed -i 's/=mt7622/=filogic mt7622/' target/linux/mediatek/Makefile
+	# curl -o package/boot/uboot-envtools/files/mediatek_filogic https://raw.githubusercontent.com/openwrt/openwrt/master/package/boot/uboot-envtools/files/mediatek_filogic
+	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts
+	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
+	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
+	# curl -o target/linux/mediatek/image/filogic.mk https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/image/filogic.mk
+	# ln -s config-5.15 target/linux/mediatek/filogic/config-5.10
+
+	# 修复 luci-app-apinger 依赖
+	# rm -rf feeds/packages/net/apinger
+	# svn export https://github.com/coolsnowwolf/packages/trunk/net/apinger feeds/packages/net/apinger
+	rm -rf feeds/luci/applications/luci-app-apinger
 fi
 
 ./scripts/feeds install -a

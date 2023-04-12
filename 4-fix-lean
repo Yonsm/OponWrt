@@ -1,14 +1,13 @@
 #!/bin/sh
 [ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
-# 内核
-sed -i 's/KERNEL_PATCHVER:=6.1/KERNEL_PATCHVER:=5.15/' target/linux/x86/Makefile
-
-# Packages
-sed -i 's/luci-app-autoreboot//' include/target.mk
-sed -i 's/luci-app-arpbind luci-app-filetransfer luci-app-vsftpd luci-app-ssr-plus luci-app-vlmcsd/luci-theme-argon-mod luci-app-commands luci-app-ssr-plus/' include/target.mk
-sed -i 's/luci-app-accesscontrol luci-app-nlbwmon luci-app-turboacc luci-app-wol/htop openssh-sftp-server iperf3 tcpdump/' include/target.mk
-sed -i 's/mdadm/mdadm eject hdparm parted dosfstools e2fsprogs resize2fs tune2fs luci-app-aria2 luci-app-diskman luci-app-hd-idle luci-app-samba4/' include/target.mk
+# 默认软件包
+sed -i -e 's/dnsmasq-full firewall/firewall/' \
+	-e 's/block-mount coremark/coremark/' \
+	-e 's/default-settings luci/odhcp6c odhcpd-ipv6only/' \
+	-e '/ddns-scripts_aliyun ddns-scripts_dnspod luci-app-ddns luci-app-upnp luci-app-autoreboot/d' \
+	-e 's/luci-app-arpbind luci-app-filetransfer luci-app-vsftpd luci-app-ssr-plus luci-app-vlmcsd/luci-theme-argon-mod/' \
+	-e 's/luci-app-accesscontrol luci-app-nlbwmon luci-app-turboacc luci-app-wol //' include/target.mk
 
 # 版本
 sed -i 's/%D %V %C/%D Master/' package/base-files/files/etc/openwrt_release
@@ -17,10 +16,6 @@ sed -i 's#openwrt/luci#Yonsm#' feeds/luci/themes/luci-theme-argon-mod/luasrc/vie
 
 #  默认设置
 sed -i '/option Interface/d' package/network/services/dropbear/files/dropbear.config
-cat <<\EOF > package/lean/default-settings/files/zzz-default-settings
-#!/bin/sh
-exit 0
-EOF
 
 # 菜单调整
 sed -i 's/"services"/"nas"/g' feeds/luci/applications/luci-app-aria2/luasrc/controller/aria2.lua
@@ -53,7 +48,7 @@ sed -i 's/"CPU 性能优化调节"/"性能调节"/' feeds/luci/applications/luci
 sed -i "s/Argon 主题设置/主题设置/" feeds/luci/applications/luci-app-argon-config/po/zh-cn/argon-config.po
 sed -i 's/Turbo ACC 网络加速/网络加速/' feeds/luci/applications/luci-app-turboacc/po/zh-cn/turboacc.po
 
-grep 专网 package/lean/default-settings/po/zh-cn/default.po || cat <<\EOF >> package/lean/default-settings/po/zh-cn/default.po
+grep 专网 feeds/luci/modules/luci-base/po/zh-cn/base.po || cat <<\EOF >> feeds/luci/modules/luci-base/po/zh-cn/base.po
 
 msgid "NAS"
 msgstr "存储"

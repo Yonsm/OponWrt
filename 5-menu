@@ -7,14 +7,6 @@ if [ ! -z $1 ]; then
 	ln -sf $CONFIG .config
 
 	USB=1
-	[[ $1 = *\+WIFI* ]] && WIFI=1 || WIFI=0
-	[[ $1 = *\+HASS* ]] && HASS=1 || HASS=0
-	[[ $1 = *\+DOCKER* ]] && DOCKER=1 || DOCKER=0
-
-	[[ $1 = *\+NTFS3G* ]] && NTFS3G=1 || NTFS3G=0
-	[[ $1 = *\+SAMBA4* ]] && SAMBA4=1 || SAMBA4=0
-	[[ $1 = *\+FIREWALL3* ]] && FIREWALL3=1 || FIREWALL3=0
-
 	case "$1" in
 	CM520*)
 		MAGIC=dbe3401f809fe7ca08f8fcc087584e8d
@@ -42,7 +34,7 @@ if [ ! -z $1 ]; then
 		MAGIC=88bbb0b8c80abf953ee5e7001a2ef514
 		BOARD=mediatek
 		TARGET=filogic
-		DEVICE=DEVICE_xiaomi_redmi-router-ax6000-stock
+		[ $1 == RMAX6000+STOCK ] && DEVICE=DEVICE_xiaomi_redmi-router-ax6000-stock || DEVICE=DEVICE_xiaomi_redmi-router-ax6000
 		USB=0
 		;;
 	N1*)
@@ -69,31 +61,11 @@ if [ ! -z $1 ]; then
 	if [ ! -f $CONFIG ] || [ "$2" == "-f" ]; then
 		cat <<EOF > $CONFIG
 # CONFIG_PACKAGE_mkf2fs is not set
-# CONFIG_PACKAGE_dnsmasq is not set
-# CONFIG_PACKAGE_mdadm is not set
-CONFIG_PACKAGE_dnsmasq-full=y
-CONFIG_PACKAGE_htop=y
-CONFIG_PACKAGE_luci=y
-CONFIG_PACKAGE_luci-app-commands=y
-CONFIG_PACKAGE_luci-app-ddns=y
-CONFIG_PACKAGE_luci-app-ssr-plus=y
-CONFIG_PACKAGE_luci-app-uhttpd=y
-CONFIG_PACKAGE_luci-app-upnp=y
-CONFIG_PACKAGE_luci-app-xfrpc=y
-CONFIG_PACKAGE_luci-theme-argon=y
-CONFIG_PACKAGE_ddns-scripts-dnspod=y
-CONFIG_PACKAGE_openssh-sftp-server=y
-CONFIG_PACKAGE_iperf3=y
-EOF
-
-		[ $FIREWALL3 == 1 ] && cat <<EOF >> $CONFIG
-# CONFIG_PACKAGE_firewall4 is not set
-CONFIG_PACKAGE_firewall=y
+# CONFIG_PACKAGE_kmod-fs-f2fs is not set
 EOF
 
 		if [ $USB == 1 ]; then
 			cat <<EOF >> $CONFIG
-CONFIG_PACKAGE_block-mount=y
 CONFIG_PACKAGE_kmod-fs-exfat=y
 CONFIG_PACKAGE_kmod-fs-ext4=y
 CONFIG_PACKAGE_kmod-fs-vfat=y
@@ -105,12 +77,13 @@ CONFIG_PACKAGE_ariang=y
 CONFIG_PACKAGE_blkid=y
 CONFIG_PACKAGE_eject=y
 CONFIG_PACKAGE_hdparm=y
+CONFIG_PACKAGE_lsblk=y
 CONFIG_PACKAGE_tune2fs=y
 CONFIG_PACKAGE_fdisk=y
-CONFIG_PACKAGE_`[ $NTFS3G == 1 ] && echo ntfs-3g-utils || echo ntfs3-mount`=y
+CONFIG_PACKAGE_`[[ $1 = *\+NTFS3G* ]] && echo ntfs-3g-utils || echo ntfs3-mount`=y
 EOF
 
-		if [ $SAMBA4 == 1 ]; then
+		if [[ $1 = *\+SMB4* ]]; then
 			echo "CONFIG_PACKAGE_luci-app-samba4=y" >> $CONFIG
 		else
 			echo "CONFIG_PACKAGE_luci-app-ksmbd=y" >> $CONFIG
@@ -119,17 +92,26 @@ EOF
 		fi
 fi
 
-		[ $HASS == 1 ] && cat <<EOF >> $CONFIG
+		[[ $1 = *\+WIFI* ]] && cat <<EOF >> $CONFIG
+CONFIG_PACKAGE_iwlwifi-firmware-ax210=y
+CONFIG_PACKAGE_kmod-iwlwifi=y
+CONFIG_PACKAGE_kmod-mac80211=y
+CONFIG_PACKAGE_wpa-cli=y
+CONFIG_PACKAGE_wpad-basic=y
+EOF
+
+		[[ $1 = *\+HASS* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_mosquitto-client-nossl=y
 CONFIG_PACKAGE_mosquitto-nossl=y
 CONFIG_PACKAGE_python3-pip=y
 CONFIG_PACKAGE_python3-dev=y
+CONFIG_PACKAGE_libffi=y
 CONFIG_PACKAGE_gcc=y
 CONFIG_PACKAGE_ffmpeg=y
 EOF
-# Error: CONFIG_PACKAGE_python3-cffi=y
+# CONFIG_PACKAGE_python3-cffi=y
 
-		[ $DOCKER == 1 ] && cat <<EOF >> $CONFIG
+		[[ $1 = *\+DOCKER* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_luci-app-dockerman=y
 CONFIG_PACKAGE_dockerd=y
 EOF
@@ -153,25 +135,22 @@ CONFIG_BRCMFMAC_SDIO=y
 # CONFIG_BRCMFMAC_USB is not set
 # CONFIG_BRCMFMAC_PCIE is not set
 CONFIG_BTRFS_PROGS_ZSTD=y
-CONFIG_PACKAGE_kmod-usb2=y
 CONFIG_PACKAGE_kmod-usb-net=y
 CONFIG_PACKAGE_kmod-brcmfmac=y
 CONFIG_PACKAGE_kmod-mac80211=y
-CONFIG_PACKAGE_hostapd-common=y
 CONFIG_PACKAGE_wpa-cli=y
 CONFIG_PACKAGE_wpad-basic=y
-CONFIG_PACKAGE_iw=y
 CONFIG_PACKAGE_btrfs-progs=y
 EOF
+# CONFIG_PACKAGE_kmod-usb2=y
 
 		[[ $1 = X64* ]] && cat <<EOF >> $CONFIG
+CONFIG_TARGET_ROOTFS_TARGZ=y
 # CONFIG_TARGET_ROOTFS_SQUASHFS is not set
 # CONFIG_GRUB_IMAGES is not set
 # CONFIG_PACKAGE_mtd is not set
 CONFIG_GRUB_TIMEOUT="2"
 CONFIG_TARGET_ROOTFS_PARTSIZE=400
-CONFIG_PACKAGE_kmod-usb2=y
-CONFIG_PACKAGE_kmod-usb3=y
 # CONFIG_PACKAGE_kmod-amazon-ena is not set
 # CONFIG_PACKAGE_kmod-amd-xgbe is not set
 # CONFIG_PACKAGE_kmod-bnx2 is not set
@@ -186,20 +165,74 @@ CONFIG_PACKAGE_kmod-igc=y
 # CONFIG_PACKAGE_kmod-tg3 is not set
 CONFIG_PACKAGE_lm-sensors=y
 EOF
+# CONFIG_PACKAGE_kmod-usb2=y
+# CONFIG_PACKAGE_kmod-usb3=y
+
+	[[ $1 = X64* ]] && [ -d package/lean ] && cat <<EOF >> $CONFIG
+# CONFIG_PACKAGE_kmod-alx is not set
+# CONFIG_PACKAGE_kmod-e1000e is not set
+# CONFIG_PACKAGE_kmod-igb is not set
+# CONFIG_PACKAGE_kmod-igbvf is not set
+# CONFIG_PACKAGE_kmod-iavf is not set
+# CONFIG_PACKAGE_kmod-bnx2x is not set
+# CONFIG_PACKAGE_kmod-pcnet32 is not set
+# CONFIG_PACKAGE_kmod-tulip is not set
+# CONFIG_PACKAGE_kmod-via-velocity is not set
+# CONFIG_PACKAGE_kmod-vmxnet3 is not set
+# CONFIG_PACKAGE_kmod-i40e is not set
+# CONFIG_PACKAGE_kmod-i40evf is not set
+# CONFIG_PACKAGE_kmod-r8125 is not set
+# CONFIG_PACKAGE_kmod-8139cp is not set
+# CONFIG_PACKAGE_kmod-8139too is not set
+# CONFIG_PACKAGE_kmod-tg3 is not set
+# CONFIG_PACKAGE_autocore-x86 is not set
+# CONFIG_PACKAGE_automount is not set
+# CONFIG_PACKAGE_autosamba is not set
+# CONFIG_PACKAGE_luci-app-adbyby-plus is not set
+# CONFIG_PACKAGE_luci-app-ipsec-vpnd is not set
+# CONFIG_PACKAGE_luci-proto-bonding is not set
+# CONFIG_PACKAGE_luci-app-diskman is not set
+# CONFIG_PACKAGE_luci-app-unblockmusic is not set
+# CONFIG_PACKAGE_luci-app-zerotier is not set
+# CONFIG_PACKAGE_luci-app-xlnetacc is not set
+# CONFIG_PACKAGE_luci-app-wireguard is not set
+# CONFIG_PACKAGE_luci-app-ttyd is not set
+# CONFIG_PACKAGE_kmod-sound-hda-core is not set
+# CONFIG_PACKAGE_kmod-sound-hda-codec-realtek is not set
+# CONFIG_PACKAGE_kmod-sound-hda-codec-via is not set
+# CONFIG_PACKAGE_kmod-sound-via82xx is not set
+# CONFIG_PACKAGE_kmod-sound-hda-intel is not set
+# CONFIG_PACKAGE_kmod-sound-hda-codec-hdmi is not set
+# CONFIG_PACKAGE_kmod-sound-i8x0 is not set
+# CONFIG_PACKAGE_kmod-usb-audio is not set
+# CONFIG_PACKAGE_kmod-usb-net is not set
+# CONFIG_PACKAGE_kmod-usb-net-asix-ax88179 is not set
+# CONFIG_PACKAGE_kmod-usb-net-rtl8150 is not set
+# CONFIG_PACKAGE_kmod-usb-net-rtl8152-vendor is not set
+# CONFIG_PACKAGE_kmod-usb-net-aqc111 is not set
+# CONFIG_PACKAGE_kmod-mlx4-core is not set
+# CONFIG_PACKAGE_kmod-mlx5-core is not set
+# CONFIG_PACKAGE_kmod-drm-i915 is not set
+# CONFIG_PACKAGE_kmod-drm-amdgpu is not set
+CONFIG_PACKAGE_kmod-shortcut-fe=y
+CONFIG_PACKAGE_kmod-shortcut-fe-cm=y
+EOF
 	fi
 
-	# 避免 macOS X64 编译错误
+	#[ -d /Library/Apple ] && [[ $1 = X64* ]] && echo "CONFIG_PACKAGE_libintl-full=y" >> $CONFIG
+
+	# 避免 macOS 编译错误
 	if [ -d /Library/Apple ]; then
-		sed -i 's/libpthread +zlib/libpthread +libintl-full +zlib/' feeds/packages/lang/python/python3/Makefile
 		if [[ $1 = X64* ]]; then
 			sed -i 's/= +libnettle/= +libintl-full +libnettle/' feeds/packages/libs/gnutls/Makefile
-			sed -i 's/$(INTL_DEPENDS)/+libintl-full/' feeds/packages/net/ksmbd-tools/Makefile
-			sed -i 's/-liconv $(if $(INTL_FULL),-lintl)/-liconv -lintl/' feeds/packages/net/ksmbd-tools/Makefile
+			sed -i 's/libpthread +zlib/libpthread +libintl-full +zlib/' feeds/packages/lang/python/python3/Makefile
+			# sed -i 's/$(INTL_DEPENDS)/+libintl-full/' feeds/packages/net/ksmbd-tools/Makefile
+			# sed -i 's/-liconv $(if $(INTL_FULL),-lintl)/-liconv -lintl/' feeds/packages/net/ksmbd-tools/Makefile
 		else
 			sed -i 's/= +libintl-full +libnettle/= +libnettle/' feeds/packages/libs/gnutls/Makefile
-			sed -i 's/+libintl-full/$(INTL_DEPENDS)/' feeds/packages/net/ksmbd-tools/Makefile
-			sed -i 's/-liconv -lintl/-liconv $(if $(INTL_FULL),-lintl)/' feeds/packages/net/ksmbd-tools/Makefile
-			#sed -i 's/libpthread +libintl-full +zlib/libpthread +zlib/' feeds/packages/lang/python/python3/Makefile
+			sed -i 's/libpthread +libintl-full +zlib/libpthread +zlib/' feeds/packages/lang/python/python3/Makefile
+			# sed -i 's/+libintl-full/$(INTL_DEPENDS)/' feeds/packages/net/ksmbd-tools/Makefile
+			# sed -i 's/-liconv -lintl/-liconv $(if $(INTL_FULL),-lintl)/' feeds/packages/net/ksmbd-tools/Makefile
 		fi
 	fi
 

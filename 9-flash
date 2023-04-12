@@ -23,19 +23,22 @@ if [ $ARCH == x86/64 ]; then
 	DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
 	[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
 	[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
-	scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/boot/$VMLINUZ &&
-	scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz &&
-	ssh $Router "rm -rf /wrt/*; cd /wrt && tar -xzf /tmp/rootfs.tar.gz && sync" # && cd /tmp && umount /wrt && reboot2
+	scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/tmp/$VMLINUZ &&
+	scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
+	read -p "Press any key to flash /boot/$VMLINUZ and /wrt..."
+	ssh $Router "rm -rf /wrt/*; cp /tmp/$VMLINUZ /boot/ && cd /wrt && tar -xzf /tmp/rootfs.tar.gz && sync && cd /tmp && umount /wrt && reboot2"
 elif [ $ARCH == armvirt/64 ]; then
 	# https://github.com/unifreq/openwrt_packit
-	ROOT=`ssh $Router "grep root= /boot/uEnv.txt | cut -d ' ' -f1 |cut -d '=' -f3"`
+	ROOT=`ssh $Router "grep root= /boot/uEnv.txt | cut -d '\"' -f2"`
 	[ -z "$ROOT" ] && echo "Could not read /boot/uEnv.txt" && exit
-	[ $ROOT == /dev/mmcblk2p3 ] && ROOTFS=mmcblk2p2 || ROOTFS=mmcblk2p3
-	scp bin/targets/armvirt/64/openwrt-armvirt-64-default-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz &&
-	ssh $Router "rm -rf /mnt/$ROOTFS/*; cd /mnt/$ROOTFS && tar -xzf /tmp/rootfs.tar.gz && sync"  # && cd /tmp && umount /mnt/$ROOTFS && reboot2
+	[ $ROOT == EMMC_ROOTFS2 ] && ROOTFS=mmcblk2p2 || ROOTFS=mmcblk2p3
+	scp bin/targets/armvirt/64/openwrt-armvirt-64-default-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
+	read -p "Press any key to flash $ROOTFS..."
+	ssh $Router "rm -rf /mnt/$ROOTFS/*; cd /mnt/$ROOTFS && tar -xzf /tmp/rootfs.tar.gz && sync && cd /tmp && umount /mnt/$ROOTFS && reboot2"
 else
 	BOARD=`ssh $Router "cat /etc/board.json|grep id|cut -d '\"' -f4"`
 	[ -z $BOARD ] && echo Could not get /etc/board.json on $Router && exit
-	BIN=`ls bin/targets/$ARCH/openwrt-${ARCH/\//-}-${BOARD/,/_}-*-sysupgrade.bin` &&
-	scp -O $BIN $Router:/tmp/sysupgrade.bin && ssh $Router "sysupgrade $ARGS /tmp/sysupgrade.bin"
+	BIN=`ls bin/targets/$ARCH/openwrt-${ARCH/\//-}-${BOARD/,/_}-*-sysupgrade.bin`
+	scp -O $BIN $Router:/tmp/sysupgrade.bin &&
+	ssh $Router "sysupgrade $ARGS /tmp/sysupgrade.bin"
 fi

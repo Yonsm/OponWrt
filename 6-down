@@ -1,4 +1,4 @@
 #!/bin/sh
 [ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
-make download -j8
+make download -j8 $1

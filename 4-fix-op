@@ -1,19 +1,22 @@
 #!/bin/sh
 [ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
+sed -i 's#22.03-SNAPSHOT#22.03.4#' include/version.mk
+
+# 默认软件包
+sed -i 's/dnsmasq \\/luci-theme-argon \\/' include/target.mk
+
 # 主题：修复 MacOS Chrome 退出按钮图标错误
 sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css
 sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/less/cascade.less
 sed -i "s/'menu' : null/'menu' : 'food'/" package/luci-theme-argon/htdocs/luci-static/resources/menu-argon.js
 sed -i 's#openwrt/luci#Yonsm#' package/luci-theme-argon/luasrc/view/themes/argon/footer.htm
 
+# DDNS
+sed -i -e 's/myddns_ipv4/IPv4/' -e 's/myddns_ipv6/IPv6/' feeds/packages/net/ddns-scripts/files/etc/config/ddns
+
 # 默认语言：中文
 sed -i 's/LUCI_DEPENDS:= \\/LUCI_DEPENDS:=+@LUCI_LANG_zh_Hans \\/' feeds/luci/collections/luci/Makefile
-
-# DOCKER：修复 22.03.3 引入的问题: https://github.com/openwrt/luci/issues/6168
-#rm -rf feeds/luci/applications/luci-app-dockerman
-#svn export https://github.com/lisaac/luci-app-dockerman/trunk/applications/luci-app-dockerman feeds/luci/applications/luci-app-dockerman
-sed -i 's/alias("admin", "docker", "config")/firstchild()/' feeds/luci/applications/luci-app-dockerman/luasrc/controller/dockerman.lua
 
 # 菜单调整
 # sed -i 's/services/nas/g' feeds/luci/applications/luci-app-aria2/root/usr/share/luci/menu.d/luci-app-aria2.json
@@ -36,3 +39,9 @@ sed -i 's/"防火墙"/"防火长城"/' feeds/luci/modules/luci-base/po/zh_Hans/b
 
 sed -i 's/"防火墙"/"防火长城"/' feeds/luci/applications/luci-app-firewall/po/zh_Hans/firewall.po
 sed -i 's/msgstr "Aria2"/msgstr "下载工具"/' feeds/luci/applications/luci-app-aria2/po/zh_Hans/aria2.po
+
+# 修复 macOS 编译问题
+if [ -d /Library/Apple ]; then
+	sed -i '/sed -i/d' package/libs/mbedtls/Makefile
+	sed -i "s#\$(Build#sed -i '/fuzz/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\tsed -i '/test/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\t\$(Build#" package/libs/mbedtls/Makefile
+fi

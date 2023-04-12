@@ -5,9 +5,11 @@
 if [ -d package/lean ]; then
 	ZHCN=zh-cn
 	${0%/*}/4-fix-lean
+	FRPC=frp
 else
 	ZHCN=zh_Hans
 	${0%/*}/4-fix-op
+	FRPC=frpc
 fi
 
 # 内核标记：解决无法安装官方软件包的问题
@@ -19,23 +21,31 @@ sed -i 's/%D %V %C/%D %V/' package/base-files/files/etc/openwrt_release
 sed -i 's/${2:-Git}/$(date +%Y-%m-%d)/' feeds/luci/modules/luci-base/src/mkversion.sh
 sed -i 's/${3:-LuCI}/Yonsm/' feeds/luci/modules/luci-base/src/mkversion.sh
 sed -i 's/LuCI - Lua Configuration Interface/Loading.../' feeds/luci/modules/luci-base/root/www/index.html
-sed -i -e 's#),22.03-SNAPSHOT#),22.03#' -e 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
+sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
 #sed -i "s|https.*/OpenWrt|https://github.com/Yonsm/OpenWrt|g" package/luci-app-amlogic/luci-app-amlogic/root/etc/config/amlogic
 
 # 默认配置
 sed -i '/sequential_ip/d' package/network/services/dnsmasq/files/dhcp.conf
 sed -i 's/config dnsmasq/config dnsmasq\n\toption sequential_ip\t1/' package/network/services/dnsmasq/files/dhcp.conf
+
+sed -i 's/users" ] \&\& printf.*/users" ] \&\& ([ "$guest_ok" == "yes" ] \&\& printf "\\tread list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' feeds/packages/net/samba4/files/samba.init
 sed -i 's/Samba on OpenWRT/Stroage/' feeds/packages/net/samba4/files/samba.config
 sed -i 's/Samba on OpenWrt/Stroage/' feeds/packages/net/samba4/files/samba.init
 sed -i -e 's/################ Filesystem and creation rules ################/\t# Filesystem and creation rules/' \
 	-e 's/################################################################/\n\taccess based share enum = yes/' feeds/packages/net/samba4/files/smb.conf.template
+
+sed -i 's/users" ] \&\& printf.*/users" ] \&\& ([ "$guest_ok" == "yes" ] \&\& printf "\\tread list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' feeds/packages/net/ksmbd-tools/files/ksmbd.init
 sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config
 sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config.example
-
-sed -i -e 's/myddns_ipv4/IPv4/' -e 's/myddns_ipv6/IPv6/' feeds/packages/net/ddns-scripts/files/etc/config/ddns
+sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
+	-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/.apdisk/\n\t\#cache read buffers#' \
+	-e 's/\tcache trans buffers/\t#cache trans buffers/' feeds/packages/net/ksmbd-tools/files/smb.conf.template
 
 sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=OpenWrt/ssid=Router/' -e 's/encryption=none/encryption=psk2\n\t\t\tset wireless.default_radio${devidx}.key=asdfqwer/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's_root:::_root:$1$iG/alp.I$UezVYUU8eoLfjQ1grCHsx/:19448:_' package/base-files/files/etc/shadow
+
+# 默认软件包
+sed -i 's/router:=\\/router:=block-mount dnsmasq-full htop luci luci-app-commands luci-app-ddns luci-app-ssr-plus luci-app-uhttpd luci-app-upnp luci-app-xfrpc ddns-scripts-dnspod ddns-scripts-aliyun openssh-sftp-server iperf3\\/' include/target.mk
 
 # 你好世界：去除 XRay@go，选择 Trojan@cpp
 sed -i 's/y if i386||x86_64||arm/n/' package/helloworld/luci-app-ssr-plus/Makefile
@@ -45,17 +55,17 @@ sed -i 's/Shadowsocks New Version/Shadowsocks/' package/helloworld/luci-app-ssr-
 
 # 防火墙：开启 HTTPS 端口
 sed -i 's/:443/:81/'  package/network/services/uhttpd/files/uhttpd.config
-grep Allow-HTTPS package/network/config/firewall/files/firewall.config || cat <<\EOF >>package/network/config/firewall/files/firewall.config
-
-config rule
-	option name		Allow-HTTPS
-	option src		wan
-	option proto		tcp
-	option dest_port	81
-	option target		ACCEPT
-EOF
 curl -o package/network/config/firewall4/firewall.config "https://git.openwrt.org/?p=project/firewall4.git;a=blob_plain;f=root/etc/config/firewall"
-grep Allow-HTTPS package/network/config/firewall4/firewall.config || cat <<\EOF >>package/network/config/firewall4/firewall.config
+grep INSTALL_CONF package/network/config/firewall4/Makefile || sed -i 's#(1)/#(1)/\n\t$(INSTALL_CONF) ./firewall.config $(1)/etc/config/firewall#' package/network/config/firewall4/Makefile
+for FILE in package/network/config/firewall/files/firewall.config package/network/config/firewall4/firewall.config; do
+grep Allow-HTTPS $FILE || cat <<\EOF >>$FILE
+
+config rule
+	option name		Allow-HTTP
+	option src		wan
+	option proto		tcp
+	option dest_port	80
+	option target		ACCEPT
 
 config rule
 	option name		Allow-HTTPS
@@ -64,7 +74,7 @@ config rule
 	option dest_port	81
 	option target		ACCEPT
 EOF
-grep INSTALL_CONF package/network/config/firewall4/Makefile || sed -i 's#(1)/#(1)/\n\t$(INSTALL_CONF) ./firewall.config $(1)/etc/config/firewall#' package/network/config/firewall4/Makefile
+done
 
 # 文案调整
 sed -i 's/"ShadowSocksR Plus+ 设置"/"科学上网设置"\n\nmsgid "ShadowSocksR Plus+"\nmsgstr "科学上网"/' package/helloworld/luci-app-ssr-plus/po/zh-cn/ssr-plus.po
@@ -73,7 +83,7 @@ sed -i 's/msgstr "Docker"/msgstr "容器"/' feeds/luci/applications/luci-app-doc
 sed -i 's/msgstr "存储卷"/msgstr "存储"/' feeds/luci/applications/luci-app-dockerman/po/$ZHCN/dockerman.po
 
 sed -i 's/"frp 服务器"/"公网穿透"/' feeds/luci/applications/luci-app-frps/po/$ZHCN/frps.po
-sed -i 's/"frp 客户端"/"内网穿透"/' feeds/luci/applications/luci-app-frpc/po/$ZHCN/frpc.po
+sed -i 's/"frp 客户端"/"内网穿透"/' feeds/luci/applications/luci-app-frpc/po/$ZHCN/$FRPC.po
 #sed -i 's/msgstr "Reverse proxy"/msgstr "内网穿透"/' feeds/luci/applications/luci-app-xfrpc/po/zh_Hans/frpc.po
 
 sed -i 's/"动态 DNS"/"动态域名"/' feeds/luci/applications/luci-app-ddns/po/$ZHCN/ddns.po
@@ -107,15 +117,8 @@ sed -i ':a;N;s/msgid "Reboot"\nmsgstr "重启"/msgid "Reboot"\nmsgstr "重新启
 sed -i 's/DHCP\/DNS/主机域名/' feeds/luci/modules/luci-base/po/$ZHCN/base.po
 #sed -i 's/"无线"/"无线网络"/' feeds/luci/modules/luci-base/po/$ZHCN/base.po
 
-# 清理文件和错误
+# 清理 macOS 文件和错误
 sed -i "s/'CVS' -o -name '.svn'/'CVS' -o -name '.DS_Store' -o -name '.svn'/" include/package-ipkg.mk
-rm -rf feeds/luci/applications/luci-app-apinger
 
 # 文件修改
 cp -r ${0%/*}/fix-files/* .
-
-# 避免 macOS 编译错误
-if [ -d /Library/Apple ]; then
-	sed -i '/sed -i/d' package/libs/mbedtls/Makefile
-	sed -i "s#\$(Build#sed -i '/fuzz/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\tsed -i '/test/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\t\$(Build#" package/libs/mbedtls/Makefile
-fi

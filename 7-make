@@ -1,4 +1,9 @@
 #!/bin/sh
 [ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
+if [ -d /Library/Apple ]; then
+	[ -f build_dir/hostpkg/json-c-0.15/json_util.c ] && sed -i 's/json_util_get_last_err()/json_util_get_last_err(void)/' build_dir/hostpkg/json-c-0.15/json_util.c
+	[ -f build_dir/hostpkg/json-c-0.16/json_util.c ] && sed -i 's/json_util_get_last_err()/json_util_get_last_err(void)/' build_dir/hostpkg/json-c-0.16/json_util.c
+fi
+
 make -j $(($(nproc)+1)) || make -j1 V=s
