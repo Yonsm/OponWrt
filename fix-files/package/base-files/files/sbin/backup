@@ -1,16 +1,14 @@
 #!/bin/sh
-while read SRC; do
-	DST=/opt${SRC%/*}/
-	[ ! -d $DST ] && mkdir -p $DST
-	cp $SRC $DST
-done <<\EOF
-/etc/config/*
-/etc/dropbear/authorized_keys
-/etc/samba/smb.conf.template
-/etc/samba/smbpasswd
-/etc/passwd
-/etc/shadow
-/etc/uhttpd.crt
-/etc/uhttpd.key
-/etc/rc.local
+[ $1 ] && DIR=$1/etc || DIR=/opt/etc
+[ ! -d $DIR ] && mkdir -p $DIR
+while read SRC; do [ -e /etc/$SRC ] && cp -a /etc/$SRC $DIR; done <<\EOF
+config
+dropbear
+samba
+ksmbd
+passwd
+shadow
+uhttpd.crt
+uhttpd.key
+rc.local
 EOF

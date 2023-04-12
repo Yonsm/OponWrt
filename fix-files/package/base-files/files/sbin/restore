@@ -1,2 +1,3 @@
 #!/bin/sh
-cp /opt/etc/* /etc
+[ $1 ] && DIR=$1 || DIR=/opt
+cp -a $DIR/etc/* $2/etc
