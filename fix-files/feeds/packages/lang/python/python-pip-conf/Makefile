@@ -32,8 +32,7 @@ define Package/python-pip-conf/install
 	$(INSTALL_DIR) $(1)/etc
 	$(CP) ./files/pip.conf $(1)/etc
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) ./files/pip3fix $(1)/usr/bin
-	$(INSTALL_BIN) ./files/pip3sofix $(1)/usr/bin
+	$(INSTALL_BIN) ./files/hassutil $(1)/usr/bin
 endef
 
 $(eval $(call BuildPackage,python-pip-conf))
