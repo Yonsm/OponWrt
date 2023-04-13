@@ -28,7 +28,8 @@ sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
 sed -i '/sequential_ip/d' package/network/services/dnsmasq/files/dhcp.conf
 sed -i 's/config dnsmasq/config dnsmasq\n\toption sequential_ip\t1/' package/network/services/dnsmasq/files/dhcp.conf
 
-sed -i 's/users" ] \&\& printf.*/users" ] \&\& ([ "$guest_ok" == "yes" ] \&\& printf "\\tread list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' feeds/packages/net/samba4/files/samba.init
+sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
+	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' feeds/packages/net/samba4/files/samba.init
 sed -i 's/Samba on OpenWRT/Stroage/' feeds/packages/net/samba4/files/samba.config
 sed -i 's/Samba on OpenWrt/Stroage/' feeds/packages/net/samba4/files/samba.init
 sed -i -e 's/################ Filesystem and creation rules ################/\t# Filesystem and creation rules/' \
