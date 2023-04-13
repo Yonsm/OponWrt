@@ -6,6 +6,6 @@ if grep 'EMMC_ROOTFS2' /boot/uEnv.txt > /dev/null; then
 else
 	ROOT=EMMC_ROOTFS2
 fi
-sed -i 's/root=.* rootfs/root=LABEL="$ROOT" rootfs/' /boot/uEnv.txt
+sed -i "s/root=.* rootfs/root=LABEL=\"$ROOT\" rootfs/" /boot/uEnv.txt
 echo Boot to $ROOT
 reboot
