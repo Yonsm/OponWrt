@@ -35,7 +35,8 @@ sed -i 's/Samba on OpenWrt/Stroage/' feeds/packages/net/samba4/files/samba.init
 sed -i -e 's/################ Filesystem and creation rules ################/\t# Filesystem and creation rules/' \
 	-e 's/################################################################/\n\taccess based share enum = yes/' feeds/packages/net/samba4/files/smb.conf.template
 
-sed -i 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\tread list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' feeds/packages/net/ksmbd-tools/files/ksmbd.init
+sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\read list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
+	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' feeds/packages/net/ksmbd-tools/files/ksmbd.init
 sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config
 sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config.example
 sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
