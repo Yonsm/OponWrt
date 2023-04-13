@@ -12,29 +12,35 @@ fi
 ARCH=`ssh $Router "cat /etc/os-release|grep OPENWRT_BOARD|cut -d '\"' -f2"`
 [ -z "$ARCH" ] && echo Could not get /etc/os-release on $Router && exit
 
-if [ $ARCH == x86/64 ]; then
-	# 1. EFI 500M VFAT /boot
-	# 2. MSR 100M NONE 
-	# 3. WIN  80G NTFS /win
-	# 4. DAT ...G NTFS /dat
-	# 5. OPT   8G EXT4 /opt
-	# 6. WRT   2G EXT4 /
-	# 7. WRT2  2G EXT2 /wrt
-	DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
-	[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
-	[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
-	scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/tmp/$VMLINUZ &&
-	scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
-	read -p "Press any key to flash /boot/$VMLINUZ and /wrt..."
-	ssh $Router "rm -rf /wrt/*; cp /tmp/$VMLINUZ /boot/ && cd /wrt && tar -xzf /tmp/rootfs.tar.gz && sync && cd /tmp && umount /wrt && reboot2"
-elif [ $ARCH == armvirt/64 ]; then
-	# https://github.com/unifreq/openwrt_packit
-	ROOT=`ssh $Router "grep root= /boot/uEnv.txt | cut -d '\"' -f2"`
-	[ -z "$ROOT" ] && echo "Could not read /boot/uEnv.txt" && exit
-	[ $ROOT == EMMC_ROOTFS2 ] && ROOTFS=mmcblk2p2 || ROOTFS=mmcblk2p3
-	scp bin/targets/armvirt/64/openwrt-armvirt-64-default-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
-	read -p "Press any key to flash $ROOTFS..."
-	ssh $Router "rm -rf /mnt/$ROOTFS/*; cd /mnt/$ROOTFS && tar -xzf /tmp/rootfs.tar.gz && sync && cd /tmp && umount /mnt/$ROOTFS && reboot2"
+if [ $ARCH == x86/64 ] || [ $ARCH == armvirt/64 ]; then
+	if [ $ARCH == x86/64 ]; then
+		# 1. EFI 500M VFAT /boot
+		# 2. MSR 100M NONE 
+		# 3. WIN  80G NTFS /win
+		# 4. DAT ...G NTFS /dat
+		# 5. OPT   8G EXT4 /opt
+		# 6. WRT   2G EXT4 /
+		# 7. WRT2  2G EXT2 /wrt
+		DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
+		[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
+		[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
+		scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/boot/$VMLINUZ &&
+		scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
+		ROOTFS=/wrt
+	else
+		# https://github.com/unifreq/openwrt_packit
+		ROOT=`ssh $Router "grep root= /boot/uEnv.txt | cut -d '\"' -f2"`
+		[ -z "$ROOT" ] && echo "Could not read /boot/uEnv.txt" && exit
+		[ $ROOT == EMMC_ROOTFS2 ] && ROOTFS=/mnt/mmcblk2p2 || ROOTFS=/mnt/mmcblk2p3
+		scp bin/targets/armvirt/64/openwrt-armvirt-64-default-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
+	fi
+
+	echo "Preparing to write $ROOTFS..."
+	read -p "Do you want to restore config? [Y/n]" ANSWER
+	ssh $Router "rm -rf $ROOTFS/*; cd $ROOTFS && tar -xzf /tmp/rootfs.tar.gz" || exit
+	[ "$ANSWER" != "n" ] && echo "Restoring config from /etc to $ROOTFS/etc..." && (ssh $Router "for FILE in config dropbear samba ksmbd passwd shadow uhttpd.crt uhttpd.key rc.local; do [ -e /etc/\$FILE ] && echo cp -a /etc/\$FILE $ROOTFS/etc; done"  || exit)
+	read -p "Done. Press any key to reboot $ROOTFS"
+	ssh $Router "sync; cd /tmp && cp $ROOTFS/sbin/reboot2 /tmp && umount $ROOTFS && /tmp/reboot2"
 else
 	BOARD=`ssh $Router "cat /etc/board.json|grep id|cut -d '\"' -f4"`
 	[ -z $BOARD ] && echo Could not get /etc/board.json on $Router && exit
