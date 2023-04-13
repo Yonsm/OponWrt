@@ -1,14 +1,9 @@
 #!/bin/sh
-[ $1 ] && DIR=$1/etc || DIR=/opt/etc
-[ ! -d $DIR ] && mkdir -p $DIR
-while read SRC; do [ -e /etc/$SRC ] && cp -a /etc/$SRC $DIR; done <<\EOF
-config
-dropbear
-samba
-ksmbd
-passwd
-shadow
-uhttpd.crt
-uhttpd.key
-rc.local
-EOF
+[ $1 ] && DST=$1 || DST=/opt/etc
+[ $2 ] && SRC=$2 || SRC=/etc
+
+[ ! -d $DST ] && mkdir -p $DST
+for FILE in config dropbear samba ksmbd passwd shadow uhttpd.crt uhttpd.key rc.local
+do
+	[ -e $SRC/$FILE ] && echo "$SRC/$FILE => $DST" && cp -a $SRC/$FILE $DST
+done

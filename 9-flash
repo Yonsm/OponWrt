@@ -38,7 +38,7 @@ if [ $ARCH == x86/64 ] || [ $ARCH == armvirt/64 ]; then
 	echo "Preparing to write $ROOTFS..."
 	read -p "Do you want to restore config? [Y/n]" ANSWER
 	ssh $Router "rm -rf $ROOTFS/*; cd $ROOTFS && tar -xzf /tmp/rootfs.tar.gz" || exit
-	[ "$ANSWER" != "n" ] && echo "Restoring config from /etc to $ROOTFS/etc..." && (ssh $Router "for FILE in config dropbear samba ksmbd passwd shadow uhttpd.crt uhttpd.key rc.local; do [ -e /etc/\$FILE ] && echo cp -a /etc/\$FILE $ROOTFS/etc; done"  || exit)
+	[ "$ANSWER" != "n" ] && echo "Restoring config from /etc to $ROOTFS/etc..." && (ssh $Router "for FILE in config dropbear samba ksmbd passwd shadow uhttpd.crt uhttpd.key rc.local; do [ -e /etc/\$FILE ] && cp -a /etc/\$FILE $ROOTFS/etc; done"  || exit)
 	read -p "Done. Press any key to reboot $ROOTFS"
 	ssh $Router "sync; cd /tmp && cp $ROOTFS/sbin/reboot2 /tmp && umount $ROOTFS && /tmp/reboot2"
 else
