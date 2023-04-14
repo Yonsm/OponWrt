@@ -15,12 +15,12 @@ ARCH=`ssh $Router "cat /etc/os-release|grep OPENWRT_BOARD|cut -d '\"' -f2"`
 if [ $ARCH == x86/64 ] || [ $ARCH == armvirt/64 ]; then
 	if [ $ARCH == x86/64 ]; then
 		# 1. EFI 500M VFAT /boot
-		# 2. MSR 100M NONE 
-		# 3. WIN  80G NTFS /win
-		# 4. DAT ...G NTFS /dat
+		# 2. MSR 100M NONE
+		# 3. WIN  80G NTFS /mnt/WIN
+		# 4. DAT ...G NTFS /mnt/DAT
 		# 5. OPT   8G EXT4 /opt
-		# 6. WRT   2G EXT4 /wrt
-		# 7. WRT2  2G EXT2 /wrt2
+		# 6. WRT   2G EXT4 /mnt/WRT
+		# 7. WRT2  2G EXT2 /mnt/WRT2
 		DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
 		[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
 		[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
