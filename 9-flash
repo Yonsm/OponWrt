@@ -24,7 +24,7 @@ if [ $ARCH == x86/64 ] || [ $ARCH == armvirt/64 ]; then
 		DEFAULT=`ssh $Router "grep default= /boot/grub/grub.cfg | cut -d '\"' -f2"`
 		[ -z "$DEFAULT" ] && echo "Could not read /boot/grub/grub.cfg" && exit
 		[ $DEFAULT == 1 ] && VMLINUZ=vmlinuz || VMLINUZ=vmlinu2
-		[ $DEFAULT == 1 ] && ROOTFS=/wrt || ROOTFS=/wrt2
+		[ $DEFAULT == 1 ] && ROOTFS=/mnt/WRT || ROOTFS=/mnt/WRT2
 		scp bin/targets/x86/64/openwrt-x86-64-generic-kernel.bin $Router:/boot/$VMLINUZ &&
 		scp bin/targets/x86/64/openwrt-x86-64-generic-rootfs.tar.gz $Router:/tmp/rootfs.tar.gz || exit
 	else
@@ -37,10 +37,10 @@ if [ $ARCH == x86/64 ] || [ $ARCH == armvirt/64 ]; then
 
 	echo "Preparing to write \"$ROOTFS\"..."
 	read -p "Do you want to restore config? [Y/n]" ANSWER
-	ssh $Router "rm -rf $ROOTFS/*; cd $ROOTFS && tar -xzf /tmp/rootfs.tar.gz" || exit
+	ssh $Router "rm -rf $ROOTFS/*; cd $ROOTFS && tar -xzf /tmp/rootfs.tar.gz; sync" || exit
 	[ "$ANSWER" != "n" ] && echo "Restoring config from /etc to $ROOTFS/etc..." && (ssh $Router "for FILE in config dropbear samba ksmbd passwd shadow uhttpd.crt uhttpd.key rc.local; do [ -e /etc/\$FILE ] && cp -a /etc/\$FILE $ROOTFS/etc; done"  || exit)
 	read -p "Done. Press any key to reboot $ROOTFS"
-	ssh $Router "sync; cd /tmp && cp $ROOTFS/sbin/reboot2 /tmp && umount $ROOTFS && /tmp/reboot2"
+	ssh $Router "cd /tmp && cp $ROOTFS/sbin/reboot2 /tmp && umount $ROOTFS && /tmp/reboot2"
 else
 	BOARD=`ssh $Router "cat /etc/board.json|grep id|cut -d '\"' -f4"`
 	[ -z $BOARD ] && echo Could not get /etc/board.json on $Router && exit
