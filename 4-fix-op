@@ -6,11 +6,8 @@ sed -i 's#22.03-SNAPSHOT#22.03.4#' include/version.mk
 # 默认软件包
 sed -i 's/dnsmasq \\/luci-theme-argon \\/' include/target.mk
 
-# 主题：修复 MacOS Chrome 退出按钮图标错误
-sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/htdocs/luci-static/argon/css/cascade.css
-sed -i 's/a\[data-title=Logout\]/.food\[data-title=Logout\]/' package/luci-theme-argon/less/cascade.less
-sed -i "s/'menu' : null/'menu' : 'food'/" package/luci-theme-argon/htdocs/luci-static/resources/menu-argon.js
-sed -i 's#openwrt/luci#Yonsm#' package/luci-theme-argon/luasrc/view/themes/argon/footer.htm
+# 主题
+sed -i 's#openwrt/luci#Yonsm/OponWrt#' feeds/luci/themes/luci-theme-argon/luasrc/view/themes/argon/footer.htm
 
 # DDNS
 sed -i -e 's/myddns_ipv4/IPv4/' -e 's/myddns_ipv6/IPv6/' feeds/packages/net/ddns-scripts/files/etc/config/ddns
