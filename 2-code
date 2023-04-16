@@ -35,8 +35,10 @@ else
 	curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
 
 	# 升级 SAMBA4 并修复 macOS  编译问题
-	rm -rf feeds/packages/net/samba4
-	svn export https://github.com/coolsnowwolf/packages/trunk/net/samba4 feeds/packages/net/samba4
+	if [ -d /Library/Apple ]; then
+		rm -rf feeds/packages/net/samba4
+		svn export https://github.com/coolsnowwolf/packages/trunk/net/samba4 feeds/packages/net/samba4
+	fi
 
 	# TODO: 支持 Redmi AX6000
 	# svn export https://github.com/openwrt/openwrt/trunk/target/linux/mediatek/filogic target/linux/mediatek/filogic
