@@ -3,7 +3,7 @@
 
 if [ ! -z $1 ]; then
 	if [ -d package/lean ]; then LEAN=-lean; else LEAN=; fi
-	CONFIG=${0%/*}/.config$LEAN/$1
+	CONFIG=.config.$1
 	ln -sf $CONFIG .config
 
 	USB=1
