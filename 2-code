@@ -28,8 +28,9 @@ else
 	svn export https://github.com/jerrykuku/luci-theme-argon/trunk feeds/luci/themes/luci-theme-argon
 
 	# NTFS3 驱动
-	git clone https://github.com/xymopen/openwrt-ntfs3 package/openwrt-ntfs3
-	sed -i 's/ntfs3 "/ntfs3 -o iocharset=utf8 "/' package/openwrt-ntfs3/utils/ntfs3-mount/files/mount.ntfs
+	svn export https://github.com/xymopen/openwrt-ntfs3/trunk/kernel/ntfs3 feeds/packages/kernel/ntfs3
+	svn export https://github.com/xymopen/openwrt-ntfs3/trunk/utils/ntfs3-mount feeds/packages/utils/ntfs3-mount
+	sed -i 's/ntfs3 "/ntfs3 -o iocharset=utf8 "/' feeds/packages/utils/ntfs3-mount/files/mount.ntfs
 
 	# 星际宝盒：支持 opboot 下的分区布局
 	curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
