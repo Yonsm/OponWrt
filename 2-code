@@ -60,5 +60,5 @@ fi
 
 ./scripts/feeds install -a
 
-git clone --depth=1 https://github.com/fw876/helloworld.git package/helloworld
-#git clone https://github.com/ophub/luci-app-amlogic.git package/luci-app-amlogic
+git submodule add -f --name helloworld https://github.com/Yonsm/helloworld.git package/helloworld
+git submodule update --remote package/helloworld
