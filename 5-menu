@@ -56,7 +56,8 @@ if [ ! -z $1 ]; then
 		;;
 	esac
 
-	echo $MAGIC > .vermagic
+	echo $MAGIC > .vermagic.$1
+	ln -s .vermagic.$1 .vermagic
 
 	if [ ! -f $CONFIG ] || [ "$2" == "-f" ]; then
 		cat <<EOF > $CONFIG
