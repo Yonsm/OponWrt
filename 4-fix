@@ -6,10 +6,13 @@ if [ -d package/lean ]; then
 	ZHCN=zh-cn
 	${0%/*}/4-fix-lean
 	FRPC=frp
+	sed -i 's/router:=\\/router:=block-mount dnsmasq-full htop luci luci-app-commands luci-app-ddns luci-app-ssr-plus luci-app-uhttpd luci-app-upnp ddns-scripts_dnspod ddns-scripts_aliyun openssh-sftp-server iperf3\\/' include/target.mk
 else
 	ZHCN=zh_Hans
 	${0%/*}/4-fix-op
 	FRPC=frpc
+	# 默认软件包
+	sed -i 's/router:=\\/router:=block-mount dnsmasq-full htop luci luci-app-commands luci-app-ddns luci-app-ssr-plus luci-app-uhttpd luci-app-upnp luci-app-xfrpc ddns-scripts-dnspod ddns-scripts-aliyun openssh-sftp-server iperf3\\/' include/target.mk
 fi
 
 # 内核标记：解决无法安装官方软件包的问题
@@ -45,9 +48,6 @@ sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
 
 sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=OpenWrt/ssid=Router/' -e 's/encryption=none/encryption=psk2\n\t\t\tset wireless.default_radio${devidx}.key=asdfqwer/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's_root:::_root:$1$iG/alp.I$UezVYUU8eoLfjQ1grCHsx/:19448:_' package/base-files/files/etc/shadow
-
-# 默认软件包
-sed -i 's/router:=\\/router:=block-mount dnsmasq-full htop luci luci-app-commands luci-app-ddns luci-app-ssr-plus luci-app-uhttpd luci-app-upnp luci-app-xfrpc ddns-scripts-dnspod ddns-scripts-aliyun openssh-sftp-server iperf3\\/' include/target.mk
 
 # 你好世界：去除 XRay@go，选择 Trojan@cpp
 sed -i 's/y if i386||x86_64||arm/n/' package/helloworld/luci-app-ssr-plus/Makefile

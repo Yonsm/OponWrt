@@ -16,10 +16,10 @@ if [ "$1" == "lede" ]; then
 	svn export https://github.com/openwrt/packages/trunk/devel/gcc feeds/packages/devel/gcc
 
 	# XFRPC
-	rm -rf feeds/luci/applications/luci-app-xfrpc
-	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
-	rm -rf feeds/packages/net/xfrpc
-	svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
+	# rm -rf feeds/luci/applications/luci-app-xfrpc
+	# svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
+	# rm -rf feeds/packages/net/xfrpc
+	# svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
 
 	# KSMBD
 	rm -rf feeds/luci/applications/luci-app-ksmbd

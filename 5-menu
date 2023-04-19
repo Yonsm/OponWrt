@@ -2,8 +2,7 @@
 [ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
 if [ ! -z $1 ]; then
-	if [ -d package/lean ]; then LEAN=-lean; else LEAN=; fi
-	CONFIG=.config.$1
+	if [ -d package/lean ]; then CONFIG=${0%/*}/lean/.config.$1; else CONFIG=.config.$1; fi
 	ln -sf $CONFIG .config
 
 	USB=1
