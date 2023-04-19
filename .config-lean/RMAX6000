@@ -113,6 +113,7 @@ CONFIG_DEFAULT_luci-app-uhttpd=y
 CONFIG_DEFAULT_luci-app-upnp=y
 CONFIG_DEFAULT_luci-app-xfrpc=y
 CONFIG_DEFAULT_luci-newapi=y
+CONFIG_DEFAULT_luci-proto-ipv6=y
 CONFIG_DEFAULT_luci-theme-argon-mod=y
 CONFIG_DEFAULT_mt7986-wo-firmware=y
 CONFIG_DEFAULT_mtd=y
@@ -4827,7 +4828,7 @@ CONFIG_PACKAGE_luci-theme-bootstrap=y
 # CONFIG_PACKAGE_luci-proto-3x is not set
 # CONFIG_PACKAGE_luci-proto-bonding is not set
 # CONFIG_PACKAGE_luci-proto-ipip is not set
-# CONFIG_PACKAGE_luci-proto-ipv6 is not set
+CONFIG_PACKAGE_luci-proto-ipv6=y
 # CONFIG_PACKAGE_luci-proto-mbim is not set
 # CONFIG_PACKAGE_luci-proto-ncm is not set
 # CONFIG_PACKAGE_luci-proto-openconnect is not set

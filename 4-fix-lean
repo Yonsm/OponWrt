@@ -4,7 +4,7 @@
 # 默认软件包
 sed -i -e 's/dnsmasq-full firewall/firewall/' \
 	-e 's/block-mount coremark/coremark/' \
-	-e 's/default-settings luci/odhcp6c odhcpd-ipv6only/' \
+	-e 's/default-settings luci/odhcp6c odhcpd-ipv6only luci-proto-ipv6/' \
 	-e '/ddns-scripts_aliyun ddns-scripts_dnspod luci-app-ddns luci-app-upnp luci-app-autoreboot/d' \
 	-e 's/luci-app-arpbind luci-app-filetransfer luci-app-vsftpd luci-app-ssr-plus luci-app-vlmcsd/luci-theme-argon-mod/' \
 	-e 's/luci-app-accesscontrol luci-app-nlbwmon luci-app-turboacc luci-app-wol //' include/target.mk
