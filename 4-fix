@@ -46,7 +46,7 @@ sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
 	-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/.apdisk/\n\t\#cache read buffers#' \
 	-e 's/\tcache trans buffers/\t#cache trans buffers/' feeds/packages/net/ksmbd-tools/files/smb.conf.template
 
-sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=OpenWrt/ssid=Router/' -e 's/encryption=none/encryption=psk2\n\t\t\tset wireless.default_radio${devidx}.key=asdfqwer/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
+sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=.*/ssid=Router/' -e 's/encryption=none/encryption=psk2\n\t\t\tset wireless.default_radio${devidx}.key=asdfqwer/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's_root:::_root:$1$iG/alp.I$UezVYUU8eoLfjQ1grCHsx/:19448:_' package/base-files/files/etc/shadow
 
 # 你好世界：去除 XRay@go，选择 Trojan@cpp
@@ -61,13 +61,6 @@ curl -o package/network/config/firewall4/firewall.config "https://git.openwrt.or
 grep INSTALL_CONF package/network/config/firewall4/Makefile || sed -i 's#(1)/#(1)/\n\t$(INSTALL_CONF) ./firewall.config $(1)/etc/config/firewall#' package/network/config/firewall4/Makefile
 for FILE in package/network/config/firewall/files/firewall.config package/network/config/firewall4/firewall.config; do
 grep Allow-HTTPS $FILE || cat <<\EOF >>$FILE
-
-config rule
-	option name		Allow-HTTP
-	option src		wan
-	option proto		tcp
-	option dest_port	80
-	option target		ACCEPT
 
 config rule
 	option name		Allow-HTTPS
