@@ -17,15 +17,13 @@ config mount
 	option enabled '1'
 	option label 'EMMC_ROOTFS1'
 	option target '/mnt/mmcblk2p2'
-	option fstype 'btrfs'
-	option options 'compress=zstd:6'
+	option fstype 'ext4'
 
 config mount
 	option enabled '1'
 	option label 'EMMC_ROOTFS2'
 	option target '/mnt/mmcblk2p3'
-	option fstype 'btrfs'
-	option options 'compress=zstd:6'
+	option fstype 'ext4'
 
 config mount
 	option enabled '1'

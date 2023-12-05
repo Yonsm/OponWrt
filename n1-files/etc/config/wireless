@@ -12,7 +12,7 @@ config wifi-iface 'default_radio0'
 	option device 'radio0'
 	option network 'lan'
 	option mode 'ap'
-	option ssid 'Router'
+	option ssid 'Router5'
 	option encryption 'psk2'
 	option key 'asdfqwer'
 

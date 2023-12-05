@@ -14,6 +14,9 @@ EOF
 uci -q batch <<\EOF >/dev/null
 	set network.globals.ula_prefix=fd00::/48
 	commit network
+	set upnpd.config.enabled=1
+	set upnpd.config.uuid=3943084a-dd61-4636-989c-ab0123456789
+	commit upnpd
 EOF
 
 exit 0

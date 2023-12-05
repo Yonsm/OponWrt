@@ -1,19 +1,23 @@
-#!/bin/sh
-[ $(basename `pwd`) == openwrt ] || [ $(basename `pwd`) == lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+#!/bin/bash
+[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
 
-sed -i 's#22.03-SNAPSHOT#22.03.4#' include/version.mk
+sed -i -e 's/${2:-Git}/$(date +%Y-%m-%d)/' -e 's/${3:-LuCI}/Yonsm/' feeds/luci/modules/luci-lua-runtime/src/mkversion.sh
 
 # 默认软件包
-sed -i 's/dnsmasq \\/luci-theme-argon \\/' include/target.mk
+sed -i -e 's/	ppp-mod-pppoe/	luci-theme-argon ddns-scripts-dnspod firewall4 nftables kmod-nft-offload/' \
+	-e '/dnsmasq \\/d' -e '/firewall4 \\/d' -e '/nftables \\/d' -e '/kmod-nft-offload \\/d' -e '/odhcp6c \\/d' -e '/odhcpd-ipv6only \\/d' -e '/ppp \\/d' include/target.mk
 
 # 主题
 sed -i 's#openwrt/luci#Yonsm/OponWrt#' feeds/luci/themes/luci-theme-argon/luasrc/view/themes/argon/footer.htm
+sed -i 's/Login%/Log in%/' feeds/luci/themes/luci-theme-argon/luasrc/view/themes/argon/sysauth.htm
 
 # DDNS
 sed -i -e 's/myddns_ipv4/IPv4/' -e 's/myddns_ipv6/IPv6/' feeds/packages/net/ddns-scripts/files/etc/config/ddns
 
 # 默认语言：中文
 sed -i 's/LUCI_DEPENDS:= \\/LUCI_DEPENDS:=+@LUCI_LANG_zh_Hans \\/' feeds/luci/collections/luci/Makefile
+
+sed -i 's/encryption=none/encryption=psk2\n\t\t\tset wireless.default_${name}.key=asdfqwer/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 
 # 菜单调整
 # sed -i 's/services/nas/g' feeds/luci/applications/luci-app-aria2/root/usr/share/luci/menu.d/luci-app-aria2.json
@@ -27,6 +31,8 @@ sed -i '/order/d' feeds/luci/applications/luci-app-uhttpd/root/usr/share/luci/me
 sed -i 's/services/network/g' feeds/luci/applications/luci-app-wifischedule/luasrc/controller/wifischedule/wifi_schedule.lua
 
 # 文案调整
+sed -i 's/动态 DNS(DDNS)/动态域名/' feeds/luci/applications/luci-app-ddns/po/zh_Hans/ddns.po
+
 sed -i 's/<abbr title=\\"发光二极管\\">LED<\/abbr> 配置/灯光配置/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
 sed -i 's/"LED 配置"/"灯光配置"/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
 sed -i 's/备份与升级/备份升级/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
@@ -42,3 +48,8 @@ if [ -d /Library/Apple ]; then
 	sed -i '/sed -i/d' package/libs/mbedtls/Makefile
 	sed -i "s#\$(Build#sed -i '/fuzz/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\tsed -i '/test/d' \$(PKG_BUILD_DIR)/programs/CMakeLists.txt\n\t\$(Build#" package/libs/mbedtls/Makefile
 fi
+
+# 星际宝盒：支持 opboot 下的分区布局
+grep ubiblock0_1 target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts || sed -i -e 's#ubi#rootfs#'  -e 's#soc {#chosen {\n\t\tbootargs-append = " ubi.block=0,1 root=/dev/ubiblock0_1";\n\t};\n\n\tsoc {#' target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
+#curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
+#curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata

@@ -1,64 +1,44 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ "$1" == "lede" ]; then
 	git clone https://github.com/coolsnowwolf/lede
 	cd lede
 else
-	git clone -b openwrt-22.03 https://github.com/openwrt/openwrt
+	git clone -b v23.05.2 https://github.com/openwrt/openwrt
 	cd openwrt
 fi
 
 ./scripts/feeds update -a
 
+# Aliyun WebDAV
+rm -rf feeds/luci/applications/luci-app-aliyundrive-webdav
+svn export https://github.com/messense/aliyundrive-webdav/trunk/openwrt/luci-app-aliyundrive-webdav feeds/luci/applications/luci-app-aliyundrive-webdav
+rm -rf feeds/packages/multimedia/aliyundrive-webdav
+svn export https://github.com/messense/aliyundrive-webdav/trunk/openwrt/aliyundrive-webdav feeds/packages/multimedia/aliyundrive-webdav
+
 if [ "$1" == "lede" ]; then
 	# 修复 GCC 编译不成功的问题
-	rm -rf feeds/packages/devel/gcc
-	svn export https://github.com/openwrt/packages/trunk/devel/gcc feeds/packages/devel/gcc
+	# rm -rf feeds/packages/devel/gcc
+	# svn export https://github.com/openwrt/packages/trunk/devel/gcc feeds/packages/devel/gcc
 
 	# XFRPC
-	# rm -rf feeds/luci/applications/luci-app-xfrpc
-	# svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
-	# rm -rf feeds/packages/net/xfrpc
-	# svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
+	rm -rf feeds/luci/applications/luci-app-xfrpc
+	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
+	rm -rf feeds/packages/net/xfrpc
+	svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
 
 	# KSMBD
 	rm -rf feeds/luci/applications/luci-app-ksmbd
 	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-ksmbd feeds/luci/applications/luci-app-ksmbd
 else
 	svn export https://github.com/jerrykuku/luci-theme-argon/trunk feeds/luci/themes/luci-theme-argon
-
-	# NTFS3 驱动
-	svn export https://github.com/xymopen/openwrt-ntfs3/trunk/kernel/ntfs3 feeds/packages/kernel/ntfs3
-	svn export https://github.com/xymopen/openwrt-ntfs3/trunk/utils/ntfs3-mount feeds/packages/utils/ntfs3-mount
-	sed -i 's/ntfs3 "/ntfs3 -o iocharset=utf8 "/' feeds/packages/utils/ntfs3-mount/files/mount.ntfs
-
-	# 星际宝盒：支持 opboot 下的分区布局
-	curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
-	curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
-
-	# 升级 SAMBA4 并修复 macOS  编译问题
-	if [ -d /Library/Apple ]; then
-		rm -rf feeds/packages/net/samba4
-		svn export https://github.com/coolsnowwolf/packages/trunk/net/samba4 feeds/packages/net/samba4
-	fi
-
-	# TODO: 支持 Redmi AX6000
-	# svn export https://github.com/openwrt/openwrt/trunk/target/linux/mediatek/filogic target/linux/mediatek/filogic
-	# sed -i 's/=mt7622/=filogic mt7622/' target/linux/mediatek/Makefile
-	# curl -o package/boot/uboot-envtools/files/mediatek_filogic https://raw.githubusercontent.com/openwrt/openwrt/master/package/boot/uboot-envtools/files/mediatek_filogic
-	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-stock.dts
-	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000-ubootmod.dts
-	# curl -o target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/dts/mt7986a-xiaomi-redmi-router-ax6000.dtsi
-	# curl -o target/linux/mediatek/image/filogic.mk https://raw.githubusercontent.com/openwrt/openwrt/master/target/linux/mediatek/image/filogic.mk
-	# ln -s config-5.15 target/linux/mediatek/filogic/config-5.10
-
-	# 修复 luci-app-apinger 依赖
-	# rm -rf feeds/packages/net/apinger
-	# svn export https://github.com/coolsnowwolf/packages/trunk/net/apinger feeds/packages/net/apinger
-	rm -rf feeds/luci/applications/luci-app-apinger
+	mkdir -p package/feeds/luci
+	mkdir -p package/feeds/packages
+	ln -s ../../../feeds/luci/themes/luci-theme-argon package/feeds/luci/
+	ln -s ../../../feeds/packages/multimedia/aliyundrive-webdav package/feeds/packages/
+	ln -s ../../../feeds/luci/applications/luci-app-aliyundrive-webdav package/feeds/luci/
 fi
 
 ./scripts/feeds install -a
 
-git submodule add -f --name helloworld https://github.com/Yonsm/helloworld.git package/helloworld
-git submodule update --remote package/helloworld
+git clone --depth=1  -b main https://github.com/fw876/helloworld.git package/helloworld
