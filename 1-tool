@@ -3,13 +3,13 @@
 if [ -d /Library/Apple ]; then
 	# macOS
 	[ ! -f /usr/local/bin/brew ] && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-	if [ ! -d /usr/local/opt/coreutils/libexec/gnubin ]; then
-		[ -d /usr/local/Cellar/awk ] && brew unlink awk
-		brew install svn coreutils diffutils findutils gawk gnu-getopt gnu-tar grep make ncurses pkg-config wget quilt xz gcc@11 sdl2 go
+	if [ ! -f /opt/homebrew/bin/getopt ]; then
+		#[ -d /usr/local/Cellar/awk ] && brew unlink awk
+		brew install coreutils diffutils findutils gawk gnu-sed gnu-getopt gnu-tar grep make ncurses pkg-config wget quilt xz gcc@11 sdl2 go
+		ln -s /opt/homebrew/Cellar/gnu-getopt/2.40.1/bin/getopt /opt/homebrew/bin
+		ln -s /opt/homebrew/Cellar/gnu-sed/4.9/libexec/gnubin/sed /opt/homebrew/bin
+		ln -s /opt/homebrew/Cellar/make/4.4.1/libexec/gnubin/make /opt/homebrew/bin
 	fi
-
-	sed -i '/gnubin/d' ~/.zshrc
-	echo 'export PATH="/usr/local/opt/make/libexec/gnubin:/usr/local/opt/gnu-sed/libexec/gnubin:/usr/local/opt/grep/libexec/gnubin:/usr/local/opt/gnu-tar/libexec/gnubin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/findutils/libexec/gnubin:/usr/local/opt/coreutils/libexec/gnubin:$PATH"' >> ~/.zshrc
 	[ -f /etc/paths.d/com.vmware.fusion.public ] && sudo rm /etc/paths.d/com.vmware.fusion.public
 else
 	# Ubuntu 22
