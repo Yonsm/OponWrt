@@ -4,17 +4,18 @@ if [ "$1" == "lede" ]; then
 	git clone https://github.com/coolsnowwolf/lede
 	cd lede
 else
-	git clone -b v23.05.2 https://github.com/openwrt/openwrt
+	git clone -b v23.05.3 https://github.com/openwrt/openwrt
 	cd openwrt
 fi
 
 ./scripts/feeds update -a
 
 # Aliyun WebDAV
-rm -rf feeds/luci/applications/luci-app-aliyundrive-webdav
-svn export https://github.com/messense/aliyundrive-webdav/trunk/openwrt/luci-app-aliyundrive-webdav feeds/luci/applications/luci-app-aliyundrive-webdav
+git clone https://github.com/messense/aliyundrive-webdav.git
 rm -rf feeds/packages/multimedia/aliyundrive-webdav
-svn export https://github.com/messense/aliyundrive-webdav/trunk/openwrt/aliyundrive-webdav feeds/packages/multimedia/aliyundrive-webdav
+ln -s ../../../aliyundrive-webdav/openwrt/aliyundrive-webdav feeds/packages/multimedia/aliyundrive-webdav
+rm -rf feeds/luci/applications/luci-app-aliyundrive-webdav
+ln -s ../../../aliyundrive-webdav/openwrt/luci-app-aliyundrive-webdav feeds/luci/applications/luci-app-aliyundrive-webdav
 
 if [ "$1" == "lede" ]; then
 	# 修复 GCC 编译不成功的问题
@@ -31,7 +32,10 @@ if [ "$1" == "lede" ]; then
 	rm -rf feeds/luci/applications/luci-app-ksmbd
 	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-ksmbd feeds/luci/applications/luci-app-ksmbd
 else
-	svn export https://github.com/jerrykuku/luci-theme-argon/trunk feeds/luci/themes/luci-theme-argon
+	cd feeds/luci/themes
+	git clone https://github.com/jerrykuku/luci-theme-argon.git
+	cd ../../..
+
 	mkdir -p package/feeds/luci
 	mkdir -p package/feeds/packages
 	ln -s ../../../feeds/luci/themes/luci-theme-argon package/feeds/luci/
