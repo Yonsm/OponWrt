@@ -15,10 +15,10 @@ fi
 sed -i 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp \\/' include/target.mk
 
 # dnsmasq
-# sed -i -e 's#PKG_SOURCE:=.*#PKG_SOURCE:=2.89.tar.gz#' \
-# 	-e 's#PKG_UPSTREAM_VERSION:=.*#PKG_UPSTREAM_VERSION:=2.89#' \
-# 	-e 's#PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://github.com/Yonsm/dnsmasq/archive/refs/tags/#' \
-# 	-e 's#PKG_HASH:=.*#PKG_HASH:=cbe5ac69105606b3acdd922b16050a2ade5b2803c8fb2919dda892df1ead0f81#' package/network/services/dnsmasq/Makefile
+sed -i -e 's#PKG_SOURCE:=.*#PKG_SOURCE:=2.90.tar.gz#' \
+	-e 's#PKG_UPSTREAM_VERSION:=.*#PKG_UPSTREAM_VERSION:=2.90#' \
+	-e 's#PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://github.com/Yonsm/dnsmasq/archive/refs/tags/#' \
+	-e 's#PKG_HASH:=.*#PKG_HASH:=be9e9912c9b5556892cb276419a01c95c0ecf273ff6fda50662e44b335ff7354#' package/network/services/dnsmasq/Makefile
 sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' package/network/services/dnsmasq/files/dnsmasq.init
 
 # 内核标记：解决无法安装官方软件包的问题

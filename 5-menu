@@ -43,7 +43,7 @@ if [ ! -z $1 ]; then
 		DEVICE=generic
 		;;
 	X64*)
-		MAGIC=47964456485559d992fe6f536131fc64
+		MAGIC=e496746edd89318b9810e48e36a8bd9c
 		BOARD=x86
 		TARGET=64
 		DEVICE=DEVICE_generic
@@ -256,7 +256,7 @@ EOF
 		fi
 	fi
 
-	# 
+	#
 	rm -rf files
 	[[ $1 = N1* ]] && ln -sf ${0%/*}/n1-files files
 fi
