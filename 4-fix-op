@@ -31,7 +31,7 @@ sed -i '/order/d' feeds/luci/applications/luci-app-uhttpd/root/usr/share/luci/me
 sed -i 's/services/network/g' feeds/luci/applications/luci-app-wifischedule/luasrc/controller/wifischedule/wifi_schedule.lua
 
 # 文案调整
-sed -i 's/动态 DNS(DDNS)/动态域名/' feeds/luci/applications/luci-app-ddns/po/zh_Hans/ddns.po
+sed -i 's/动态DNS/动态域名/g' feeds/luci/applications/luci-app-ddns/po/zh_Hans/ddns.po
 
 sed -i 's/<abbr title=\\"发光二极管\\">LED<\/abbr> 配置/灯光配置/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
 sed -i 's/"LED 配置"/"灯光配置"/' feeds/luci/modules/luci-base/po/zh_Hans/base.po
@@ -53,3 +53,15 @@ fi
 grep ubiblock0_1 target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts || sed -i -e 's#ubi#rootfs#'  -e 's#soc {#chosen {\n\t\tbootargs-append = " ubi.block=0,1 root=/dev/ubiblock0_1";\n\t};\n\n\tsoc {#' target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
 #curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
 #curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
+
+
+cat <<\EOF >>package/firmware/linux-firmware/realtek.mk
+
+Package/rtl8821ce-firmware = $(call Package/firmware-default,RealTek RTL8821CE firmware)
+define Package/rtl8821ce-firmware/install
+	$(INSTALL_DIR) $(1)/lib/firmware/rtw88
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/rtw88/rtw8821c_fw.bin $(1)/lib/firmware/rtw88
+endef
+$(eval $(call BuildPackage,rtl8821ce-firmware))
+
+EOF

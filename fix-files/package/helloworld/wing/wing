@@ -2,20 +2,20 @@
 # WING_URL=
 # _PROT=socks5; _USER=; _PASS=; _HOST=192.168.1.8; _PORT=; _PATH=; _ARGS=; _HASH=
 
-if [ -f /etc/config/miwifi ]; then
-	_MODE=ROUTER
-	_OS=MIWIFI
-	_GFW_LIST=/data/wing
-	_DNSMASQ_CONF=/tmp/dnsmasq.d
-	PATH=/data/wing:$PATH
-	export LD_LIBRARY_PATH=/data/wing:$LD_LIBRARY_PATH
-elif [ -f /etc/openwrt_release ]; then
+if [ -f /etc/openwrt_release ]; then
 	_MODE=ROUTER
 	_OS=OPENWRT
 	_GFW_LIST=/etc
 	#_DNSMASQ_CONF=/tmp/dnsmasq.d
 	_DNSMASQ_CONF=/etc/dnsmasq.conf
 	! grep gfwlist.txt /etc/init.d/dnsmasq > /dev/null && sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
+elif [ -f /etc/config/miwifi ]; then
+	_MODE=ROUTER
+	_OS=MIWIFI
+	_GFW_LIST=/data/wing
+	_DNSMASQ_CONF=/tmp/dnsmasq.d
+	PATH=/data/wing:$PATH
+	export LD_LIBRARY_PATH=/data/wing:$LD_LIBRARY_PATH
 elif [ -d /etc/storage ]; then
 	_MODE=ROUTER
 	_OS=PADAVAN
@@ -203,8 +203,8 @@ inject() {
 		fi
 
 		if [ $1 == -C ]; then
-			[ "$WING_PAC" = "1" ] && 
-				networksetup -setautoproxystate "$WING_NETWORK" on || 
+			[ "$WING_PAC" = "1" ] &&
+				networksetup -setautoproxystate "$WING_NETWORK" on ||
 				networksetup -setsocksfirewallproxystate "$WING_NETWORK" on
 			return 0
 		elif [ $1 == -D ]; then
@@ -213,7 +213,7 @@ inject() {
 		else
 			echo "Local Network: $WING_NETWORK"
 			echo "export ALL_PROXY=socks5://$2:$3"
-			[ "$WING_PAC" = "1" ] && 
+			[ "$WING_PAC" = "1" ] &&
 				networksetup setautoproxyurl "$WING_NETWORK" http://127.0.0.1/gfwlist.pac ||
 				networksetup setsocksfirewallproxy "$WING_NETWORK" $2 $3
 		fi
@@ -280,7 +280,7 @@ proxy() {
 }
 
 resolve() {
-	[ $_OS = MACOS ] && return
+    grep '^[[:digit:].]*$' <<< "$_HOST" 1>/dev/null && return
 
 	CNT=0
 	while [ $CNT -le 20 ]; do
@@ -290,7 +290,7 @@ resolve() {
 		192.168.*|127.0.*|"")
 			;;
 		*)
-			#_HOST=$IP
+			_HOST=$IP
 			return
 			;;
 		esac
@@ -340,7 +340,7 @@ start() {
 			local RUN_TYPE=client
 			local LOCAL_PORT=1080
 		fi
-		#resolve $1
+		resolve $1
 		[ -z $_PORT ] && _PORT=443
 		echo "{\"run_type\":\"$RUN_TYPE\",\"local_addr\":\"0.0.0.0\",\"local_port\":$LOCAL_PORT,\"remote_addr\":\"$_HOST\",\"remote_port\":$_PORT,\"password\":[\"${_USER//%/\\x}\"],\"log_level\":$1,\"ssl\":{\"verify\":false}}" > /tmp/trojan.conf
 		XCMD="trojan -c /tmp/trojan.conf"

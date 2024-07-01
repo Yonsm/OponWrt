@@ -34,6 +34,8 @@ sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
 sed -i 's#DEVICE_COMPAT_VERSION := .*#DEVICE_COMPAT_VERSION := 1.0#' target/linux/ramips/image/mt7621.mk
 
 # 默认配置
+sed -i 's/192.168.1.1/192.168.2.1/' package/base-files/files/bin/config_generate
+
 sed -i '/sequential_ip/d' package/network/services/dnsmasq/files/dhcp.conf
 sed -i 's/config dnsmasq/config dnsmasq\n\toption sequential_ip\t1/' package/network/services/dnsmasq/files/dhcp.conf
 
@@ -54,7 +56,7 @@ sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
 	-e 's/\tcache trans buffers/\t#cache trans buffers/' feeds/packages/net/ksmbd-tools/files/ksmbd.conf.template
 
 sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=.*/ssid=Router`[ $devidx != 1 ] \&\& echo $devidx`/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
-sed -i 's_root:::_root:$1$iG/alp.I$UezVYUU8eoLfjQ1grCHsx/:19448:_' package/base-files/files/etc/shadow
+#sed -i 's_root:::_root:$1$iG/alp.I$UezVYUU8eoLfjQ1grCHsx/:19448:_' package/base-files/files/etc/shadow
 
 # 你好世界：去除 XRay@go，选择 Trojan@cpp
 sed -i 's/y if i386||x86_64||arm/n/' package/helloworld/luci-app-ssr-plus/Makefile
