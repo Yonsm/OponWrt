@@ -55,7 +55,7 @@ grep ubiblock0_1 target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520
 #curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
 
 
-cat <<\EOF >>package/firmware/linux-firmware/realtek.mk
+grep RTL8821CE package/firmware/linux-firmware/realtek.mk || cat <<\EOF >>package/firmware/linux-firmware/realtek.mk
 
 Package/rtl8821ce-firmware = $(call Package/firmware-default,RealTek RTL8821CE firmware)
 define Package/rtl8821ce-firmware/install
@@ -65,3 +65,5 @@ endef
 $(eval $(call BuildPackage,rtl8821ce-firmware))
 
 EOF
+
+grep rtw88-8821ce package/kernel/mac80211/realtek.mk || sed -i 's#rtw88_8822ce.ko#rtw88_8822ce.ko \\\n\t$(PKG_BUILD_DIR)/drivers/net/wireless/realtek/rtw88/rtw88_8821ce.ko#' package/kernel/mac80211/realtek.mk
