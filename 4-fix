@@ -56,7 +56,8 @@ sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
 	-e 's/\tcache trans buffers/\t#cache trans buffers/' feeds/packages/net/ksmbd-tools/files/ksmbd.conf.template
 
 sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=.*/ssid=Router`[ $devidx != 1 ] \&\& echo $devidx`/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
-sed -i 's_root:::_root:$1$bZFAdzO8$fZAiuowK7btjfmdlzGXm11:19906:0:99999:7:::_' package/base-files/files/etc/shadow
+sed -i 's#root:::#root:$1$wEOT4uTc$RlavsXg9yqMy/6V7ZlXHh1:19906:0:99999:7:::#' package/base-files/files/etc/shadow
+
 
 # 你好世界：去除 XRay@go，选择 Trojan@cpp
 sed -i 's/y if i386||x86_64||arm/n/' package/helloworld/luci-app-ssr-plus/Makefile
