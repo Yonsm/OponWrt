@@ -15,8 +15,10 @@ else
 	# Ubuntu 22
 	sudo apt update -y
 	sudo apt upgrade -y
-	sudo apt install subversion build-essential clang flex g++ gawk gcc-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
+	sudo apt install build-essential clang flex g++ gawk gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
 fi
+
+#git clone https://github.com/Yonsm/OponWrt
 
 CDIR=$(cd "${0%/*}"; pwd)
 sed -i '/OpenWrt/d' ~/.profile
