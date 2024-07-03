@@ -13,9 +13,9 @@ if [ -d /Library/Apple ]; then
 	[ -f /etc/paths.d/com.vmware.fusion.public ] && sudo rm /etc/paths.d/com.vmware.fusion.public
 else
 	# Ubuntu 22
-	sudo apt update -y
-	sudo apt upgrade -y
-	sudo apt install build-essential clang flex g++ gawk gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget
+	apt update -y
+	apt upgrade -y
+	apt install build-essential clang flex g++ gawk gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
 fi
 
 #git clone https://github.com/Yonsm/OponWrt
