@@ -129,6 +129,8 @@ EOF
 
 		[ -d /Library/Apple ] && cat <<EOF >> $CONFIG
 CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/local/go/bin"
+EOF || cat <<EOF >> $CONFIG
+CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/bin/go"
 EOF
 
 		[[ $1 = N1* ]]  && cat <<EOF >> $CONFIG
