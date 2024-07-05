@@ -28,7 +28,8 @@ sed -i 's/$(SCRIPT_DIR)\/kconfig.pl $(LINUX_DIR)\/.config | $(MKHASH) md5/cat $(
 # 版本标识
 sed -i 's/%D %V %C/%D %V/' package/base-files/files/etc/openwrt_release
 sed -i 's/LuCI - Lua Configuration Interface/Loading.../' feeds/luci/modules/luci-base/root/www/index.html
-sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
+#sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
+sed -i 's#downloads.openwrt.org#mirrors.tuna.tsinghua.edu.cn/openwrt#' include/version.mk
 #sed -i "s|https.*/OpenWrt|https://github.com/Yonsm/OpenWrt|g" package/luci-app-amlogic/luci-app-amlogic/root/etc/config/amlogic
 
 sed -i 's#DEVICE_COMPAT_VERSION := .*#DEVICE_COMPAT_VERSION := 1.0#' target/linux/ramips/image/mt7621.mk
