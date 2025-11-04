@@ -1,8 +1,8 @@
 #!/bin/bash
-[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
 if [ ! -z $1 ]; then
-	if [ -d package/lean ]; then CONFIG=${0%/*}/lean/.config.$1; else CONFIG=${0%/*}/config/.config.$1; fi
+	CONFIG=${0%/*}/config/.config.$1;
 	ln -sf $CONFIG .config
 
 	USB=1
@@ -37,7 +37,7 @@ if [ ! -z $1 ]; then
 		USB=0
 		;;
 	N1*)
-		MAGIC=792961e60be5b4e3cd770ee7bc8d3587
+		MAGIC=2aca45916f439a8d3636bae83bbaeef5
 		BOARD=armsr
 		TARGET=armv8
 		DEVICE=generic
@@ -97,7 +97,7 @@ EOF
 				echo "CONFIG_PACKAGE_luci-app-ksmbd=y" >> $CONFIG
 				echo "CONFIG_PACKAGE_ksmbd-avahi-service=y" >> $CONFIG
 			fi
-fi
+		fi
 
 		[[ $1 = *\+HASS* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_mosquitto-client-nossl=y
@@ -127,11 +127,8 @@ CONFIG_TARGET_${BOARD}_${TARGET}=y
 CONFIG_TARGET_${BOARD}_${TARGET}_${DEVICE}=y
 EOF
 
-		[ -d /Library/Apple ] && cat <<EOF >> $CONFIG
-CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/local/go/bin"
-EOF || cat <<EOF >> $CONFIG
-CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/bin/go"
-EOF
+		echo "CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT=\"`which go`\"" >> $CONFIG
+
 
 		[[ $1 = N1* ]]  && cat <<EOF >> $CONFIG
 # CONFIG_TARGET_ROOTFS_CPIOGZ is not set
@@ -147,6 +144,7 @@ CONFIG_PACKAGE_kmod-brcmfmac=y
 CONFIG_PACKAGE_kmod-mac80211=y
 CONFIG_PACKAGE_wpa-cli=y
 CONFIG_PACKAGE_wpad-basic=y
+CONFIG_PACKAGE_kmod-mt76x0u=y
 CONFIG_PACKAGE_btrfs-progs=y
 CONFIG_PACKAGE_kmod-usb2=y
 EOF
@@ -186,85 +184,21 @@ CONFIG_PACKAGE_wireless-tools=y
 CONFIG_PACKAGE_wpa-supplicant=y
 CONFIG_PACKAGE_iwlwifi-firmware-ax210=y
 CONFIG_PACKAGE_kmod-iwlwifi=y
+CONFIG_PACKAGE_kmod-mt76x0u=y
 EOF
 # CONFIG_PACKAGE_rtl8821ce-firmware=y
 # CONFIG_PACKAGE_kmod-rtw88=y
 # CONFIG_PACKAGE_pciutils=y
 # CONFIG_PACKAGE_wpa-cli=y
 # CONFIG_PACKAGE_wpad-basic=y
-	fi
-
-	[[ $1 = X64* ]] && [ -d package/lean ] && cat <<EOF >> $CONFIG
-# CONFIG_PACKAGE_kmod-alx is not set
-# CONFIG_PACKAGE_kmod-e1000e is not set
-# CONFIG_PACKAGE_kmod-igb is not set
-# CONFIG_PACKAGE_kmod-igbvf is not set
-# CONFIG_PACKAGE_kmod-iavf is not set
-# CONFIG_PACKAGE_kmod-bnx2x is not set
-# CONFIG_PACKAGE_kmod-pcnet32 is not set
-# CONFIG_PACKAGE_kmod-tulip is not set
-# CONFIG_PACKAGE_kmod-via-velocity is not set
-# CONFIG_PACKAGE_kmod-vmxnet3 is not set
-# CONFIG_PACKAGE_kmod-i40e is not set
-# CONFIG_PACKAGE_kmod-i40evf is not set
-# CONFIG_PACKAGE_kmod-r8125 is not set
-# CONFIG_PACKAGE_kmod-8139cp is not set
-# CONFIG_PACKAGE_kmod-8139too is not set
-# CONFIG_PACKAGE_kmod-tg3 is not set
-# CONFIG_PACKAGE_autocore-x86 is not set
-# CONFIG_PACKAGE_automount is not set
-# CONFIG_PACKAGE_autosamba is not set
-# CONFIG_PACKAGE_luci-app-adbyby-plus is not set
-# CONFIG_PACKAGE_luci-app-ipsec-vpnd is not set
-# CONFIG_PACKAGE_luci-proto-bonding is not set
-# CONFIG_PACKAGE_luci-app-diskman is not set
-# CONFIG_PACKAGE_luci-app-unblockmusic is not set
-# CONFIG_PACKAGE_luci-app-zerotier is not set
-# CONFIG_PACKAGE_luci-app-xlnetacc is not set
-# CONFIG_PACKAGE_luci-app-wireguard is not set
-# CONFIG_PACKAGE_luci-app-ttyd is not set
-# CONFIG_PACKAGE_kmod-sound-hda-core is not set
-# CONFIG_PACKAGE_kmod-sound-hda-codec-realtek is not set
-# CONFIG_PACKAGE_kmod-sound-hda-codec-via is not set
-# CONFIG_PACKAGE_kmod-sound-via82xx is not set
-# CONFIG_PACKAGE_kmod-sound-hda-intel is not set
-# CONFIG_PACKAGE_kmod-sound-hda-codec-hdmi is not set
-# CONFIG_PACKAGE_kmod-sound-i8x0 is not set
-# CONFIG_PACKAGE_kmod-usb-audio is not set
-# CONFIG_PACKAGE_kmod-usb-net is not set
-# CONFIG_PACKAGE_kmod-usb-net-asix-ax88179 is not set
-# CONFIG_PACKAGE_kmod-usb-net-rtl8150 is not set
-# CONFIG_PACKAGE_kmod-usb-net-rtl8152-vendor is not set
-# CONFIG_PACKAGE_kmod-usb-net-aqc111 is not set
-# CONFIG_PACKAGE_kmod-mlx4-core is not set
-# CONFIG_PACKAGE_kmod-mlx5-core is not set
-# CONFIG_PACKAGE_kmod-drm-i915 is not set
-# CONFIG_PACKAGE_kmod-drm-amdgpu is not set
-CONFIG_PACKAGE_kmod-shortcut-fe=y
-CONFIG_PACKAGE_kmod-shortcut-fe-cm=y
-EOF
-	fi
-
-	#[ -d /Library/Apple ] && [[ $1 = X64* ]] && echo "CONFIG_PACKAGE_libintl-full=y" >> $CONFIG
-
-	# 避免 macOS 编译错误
-	if [ -d /Library/Apple ]; then
-		if [[ $1 = X64* ]]; then
-			sed -i 's/= +libnettle/= +libintl-full +libnettle/' feeds/packages/libs/gnutls/Makefile
-			sed -i 's/libpthread +zlib/libpthread +libintl-full +zlib/' feeds/packages/lang/python/python3/Makefile
-			# sed -i 's/$(INTL_DEPENDS)/+libintl-full/' feeds/packages/net/ksmbd-tools/Makefile
-			# sed -i 's/-liconv $(if $(INTL_FULL),-lintl)/-liconv -lintl/' feeds/packages/net/ksmbd-tools/Makefile
-		else
-			sed -i 's/= +libintl-full +libnettle/= +libnettle/' feeds/packages/libs/gnutls/Makefile
-			sed -i 's/libpthread +libintl-full +zlib/libpthread +zlib/' feeds/packages/lang/python/python3/Makefile
-			# sed -i 's/+libintl-full/$(INTL_DEPENDS)/' feeds/packages/net/ksmbd-tools/Makefile
-			# sed -i 's/-liconv -lintl/-liconv $(if $(INTL_FULL),-lintl)/' feeds/packages/net/ksmbd-tools/Makefile
 		fi
+
 	fi
 
-	#
+	# N1
 	rm -rf files
 	[[ $1 = N1* ]] && ln -sf ${0%/*}/n1-files files
 fi
 
+cat $CONFIG
 make menuconfig

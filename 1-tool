@@ -1,32 +1,20 @@
 #!/bin/bash
 
-if [ -d /Library/Apple ]; then
-	# macOS
-	[ ! -f /usr/local/bin/brew ] && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-	if [ ! -f /opt/homebrew/bin/getopt ]; then
-		#[ -d /usr/local/Cellar/awk ] && brew unlink awk
-		brew install coreutils diffutils findutils gawk gnu-sed gnu-getopt gnu-tar grep make ncurses pkg-config wget quilt xz gcc@11 sdl2 go
-		ln -s /opt/homebrew/Cellar/gnu-getopt/2.40.1/bin/getopt /opt/homebrew/bin
-		ln -s /opt/homebrew/Cellar/gnu-sed/4.9/libexec/gnubin/sed /opt/homebrew/bin
-		ln -s /opt/homebrew/Cellar/make/4.4.1/libexec/gnubin/make /opt/homebrew/bin
-	fi
-	[ -f /etc/paths.d/com.vmware.fusion.public ] && sudo rm /etc/paths.d/com.vmware.fusion.public
-else
-	# Ubuntu 22
-	apt update -y
-	apt upgrade -y
-	apt install build-essential clang flex g++ gawk gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
+# Ubuntu 22
+apt update -y
+apt upgrade -y
+apt install build-essential clang flex g++ gawk gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
 
-	# Debian arm64
-	sudo apt install -y ack antlr3 aria2 asciidoc autoconf automake autopoint binutils bison build-essential
-bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext
-git gperf haveged help2man intltool libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev
-libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz
-mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pip libpython3-dev qemu-utils
-rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
-sudo apt install g++-multilib-i686-linux-gnu g++-multilib-s390x-linux-gnu g++-multilib-x86-64-linux-gnu g++-multilib-x86-64-linux-gnux32
-sudo apt install libc6-dev-i386-amd64-cross libc6-dev-i386-cross libc6-dev-i386-x32-cross
-sudo apt install golang-go
+# Debian arm64
+# apt install -y ack antlr3 aria2 asciidoc autoconf automake autopoint binutils bison build-essential
+# apt install -y bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext
+# apt install -y git gperf haveged help2man intltool libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev
+# apt install -y libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libreadline-dev libssl-dev libtool lrzsz
+# apt install -y mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf python2.7 python3 python3-pip libpython3-dev qemu-utils
+# apt install -y rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+# apt install g++-multilib-i686-linux-gnu g++-multilib-s390x-linux-gnu g++-multilib-x86-64-linux-gnu g++-multilib-x86-64-linux-gnux32
+# apt install libc6-dev-i386-amd64-cross libc6-dev-i386-cross libc6-dev-i386-x32-cross
+# apt install golang-go
 
 fi
 

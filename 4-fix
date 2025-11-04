@@ -1,71 +1,26 @@
 #!/bin/bash
-[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
-# 特定修改
-if [ -d package/lean ]; then
-	ZHCN=zh-cn
-	${0%/*}/4-fix-lean
-	FRPC=frp
-else
-	ZHCN=zh_Hans
-	${0%/*}/4-fix-op
-	FRPC=frpc
-
-fi
-sed -i 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp \\/' include/target.mk
-
-# dnsmasq
-sed -i -e 's#PKG_SOURCE:=.*#PKG_SOURCE:=2.90.tar.gz#' \
-	-e 's#PKG_UPSTREAM_VERSION:=.*#PKG_UPSTREAM_VERSION:=2.90#' \
-	-e 's#PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://github.com/Yonsm/dnsmasq/archive/refs/tags/#' \
-	-e 's#PKG_HASH:=.*#PKG_HASH:=be9e9912c9b5556892cb276419a01c95c0ecf273ff6fda50662e44b335ff7354#' package/network/services/dnsmasq/Makefile
-sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' package/network/services/dnsmasq/files/dnsmasq.init
+# 版本标识
+sed -i 's/%D %V %C/%D %V/' package/base-files/files/etc/openwrt_release
 
 # 内核标记：解决无法安装官方软件包的问题
 sed -i "s/grep '/cp \$(TOPDIR)\/.vermagic \$(LINUX_DIR)\/.vermagic\n\t#rep '/" include/kernel-defaults.mk
 sed -i 's/$(SCRIPT_DIR)\/kconfig.pl $(LINUX_DIR)\/.config | $(MKHASH) md5/cat $(LINUX_DIR)\/.vermagic/' package/kernel/linux/Makefile
 
-# 版本标识
-sed -i 's/%D %V %C/%D %V/' package/base-files/files/etc/openwrt_release
-sed -i 's/LuCI - Lua Configuration Interface/Loading.../' feeds/luci/modules/luci-base/root/www/index.html
-#sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
-sed -i 's#downloads.openwrt.org#mirrors.tuna.tsinghua.edu.cn/openwrt#' include/version.mk
-#sed -i "s|https.*/OpenWrt|https://github.com/Yonsm/OpenWrt|g" package/luci-app-amlogic/luci-app-amlogic/root/etc/config/amlogic
-
-sed -i 's#DEVICE_COMPAT_VERSION := .*#DEVICE_COMPAT_VERSION := 1.0#' target/linux/ramips/image/mt7621.mk
+# 默认软件包
+sed -i -e 's/	ppp-mod-pppoe/	luci-theme-argon ddns-scripts-dnspod firewall4 nftables kmod-nft-offload/' \
+	-e '/dnsmasq \\/d' -e '/firewall4 \\/d' -e '/nftables \\/d' -e '/kmod-nft-offload \\/d' -e '/odhcp6c \\/d' -e '/odhcpd-ipv6only \\/d' -e '/ppp \\/d' \
+	-e 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp \\/' include/target.mk
 
 # 默认配置
 sed -i 's/192.168.1.1/192.168.2.1/' package/base-files/files/bin/config_generate
-
-sed -i '/sequential_ip/d' package/network/services/dnsmasq/files/dhcp.conf
-sed -i 's/config dnsmasq/config dnsmasq\n\toption sequential_ip\t1/' package/network/services/dnsmasq/files/dhcp.conf
-
-sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
-	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' feeds/packages/net/samba4/files/samba.init
-sed -i 's/Samba on OpenWRT/Stroage/' feeds/packages/net/samba4/files/samba.config
-sed -i 's/Samba on OpenWrt/Stroage/' feeds/packages/net/samba4/files/samba.init
-# sed -i -e 's/################ Filesystem and creation rules ################/\t# Filesystem and creation rules/' \
-# 	-e 's#._.DS_Store#._*/lost+found#' \
-# 	-e 's/################################################################/\n\taccess based share enum = yes/' feeds/packages/net/samba4/files/smb.conf.template
-
-sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\read list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
-	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' feeds/packages/net/ksmbd-tools/files/ksmbd.init
-sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config
-sed -i 's/Ksmbd on OpenWrt/Stroage/' feeds/packages/net/ksmbd-tools/files/ksmbd.config.example
-sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
-	-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/._*/.apdisk/lost+found/\n\t\#cache read buffers#' \
-	-e 's/\tcache trans buffers/\t#cache trans buffers/' feeds/packages/net/ksmbd-tools/files/ksmbd.conf.template
-
-sed -i -e 's/disabled=1/disabled=0/' -e 's/ssid=.*/ssid=Router`[ $devidx != 1 ] \&\& echo $devidx`/' package/kernel/mac80211/files/lib/wifi/mac80211.sh
 sed -i 's#root:::#root:$1$wEOT4uTc$RlavsXg9yqMy/6V7ZlXHh1:19906:#' package/base-files/files/etc/shadow
 
+sed -i -e 's/OpenWrt/Router/' -e "s/disabled='1'/disabled='0'/" -e 's/none/psk2/' -e 's/key || ""/key || "asdfqwer"/' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
 
-# 你好世界：去除 XRay@go，选择 Trojan@cpp
-sed -i 's/y if i386||x86_64||arm/n/' package/helloworld/luci-app-ssr-plus/Makefile
-sed -i 's/if aarch64||arm||i386||x86_64/if aarch64_no||arm_no||i386_no||x86_64_no/' package/helloworld/luci-app-ssr-plus/Makefile
-sed -i ':a;N;s/default n\nendef/default y\nendef/;$!ba' package/helloworld/luci-app-ssr-plus/Makefile
-#sed -i 's/Shadowsocks New Version/Shadowsocks/' package/helloworld/luci-app-ssr-plus/luasrc/model/cbi/shadowsocksr/client-config.lua
-sed -i 's/=+libev/=+libopenssl-legacy +libev/' package/helloworld/shadowsocksr-libev/Makefile
+# 软件源
+sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
 
 # 防火墙：开启 HTTPS 端口
 sed -i 's/:443/:81/'  package/network/services/uhttpd/files/uhttpd.config
@@ -80,31 +35,101 @@ config rule
 	option proto		tcp
 	option dest_port	81
 	option target		ACCEPT
+
+config rule
+	option name		Allow-SSH
+	option src		wan
+	option proto		tcp
+	option dest_port	22
+	option target		ACCEPT
 EOF
 done
 
+# dnsmasq
+sed -i -e '/sequential_ip/d' -e 's/config dnsmasq/config dnsmasq\n\toption sequential_ip\t1/' package/network/services/dnsmasq/files/dhcp.conf
+
+sed -i -e 's#PKG_SOURCE:=.*#PKG_SOURCE:=2.90.tar.gz#' \
+	-e 's#PKG_UPSTREAM_VERSION:=.*#PKG_UPSTREAM_VERSION:=2.90#' \
+	-e 's#PKG_SOURCE_URL:=.*#PKG_SOURCE_URL:=https://github.com/Yonsm/dnsmasq/archive/refs/tags/#' \
+	-e 's#PKG_HASH:=.*#PKG_HASH:=be9e9912c9b5556892cb276419a01c95c0ecf273ff6fda50662e44b335ff7354#' package/network/services/dnsmasq/Makefile
+sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' package/network/services/dnsmasq/files/dnsmasq.init
+
+# 星际宝盒：支持 opboot 下的分区布局
+#?grep ubiblock0_1 target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts || sed -i -e 's#ubi#rootfs#'  -e 's#soc {#chosen {\n\t\tbootargs-append = " ubi.block=0,1 root=/dev/ubiblock0_1";\n\t};\n\n\tsoc {#' target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
+#curl -o target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/files/arch/arm/boot/dts/qcom-ipq4019-cm520-79f.dts
+#curl -o target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata https://raw.githubusercontent.com/coolsnowwolf/lede/master/target/linux/ipq40xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
+
+# ?
+# grep RTL8821CE package/firmware/linux-firmware/realtek.mk || cat <<\EOF >>package/firmware/linux-firmware/realtek.mk
+
+# Package/rtl8821ce-firmware = $(call Package/firmware-default,RealTek RTL8821CE firmware)
+# define Package/rtl8821ce-firmware/install
+# 	$(INSTALL_DIR) $(1)/lib/firmware/rtw88
+# 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/rtw88/rtw8821c_fw.bin $(1)/lib/firmware/rtw88
+# endef
+# $(eval $(call BuildPackage,rtl8821ce-firmware))
+
+# EOF
+
+# grep rtw88-8821ce package/kernel/mac80211/realtek.mk || sed -i 's#rtw88_8822ce.ko#rtw88_8822ce.ko \\\n\t$(PKG_BUILD_DIR)/drivers/net/wireless/realtek/rtw88/rtw88_8821ce.ko#' package/kernel/mac80211/realtek.mk
+# sed -i 's#RTW88_8822BE RTW88_8822CE#RTW88_8822BE RTW88_8821CE RTW88_8822CE#' package/kernel/mac80211/realtek.mk
+# sed -i 's#rtw88_8822be rtw88_8822ce#rtw88_8822be rtw88_8821ce rtw88_8822ce#' package/kernel/mac80211/realtek.mk
+
+# sed -i 's#DEVICE_COMPAT_VERSION := .*#DEVICE_COMPAT_VERSION := 1.0#' target/linux/ramips/image/mt7621.mk
+
+
+git diff
+
+
+### LUCI
+cd feeds/luci
+
+# 版本号
+sed -i -e 's/${2:-Git}/$(date +%Y-%m-%d)/' -e 's/${3:-LuCI}/Yonsm/' modules/luci-lua-runtime/src/mkversion.sh
+sed -i 's/LuCI - Lua Configuration Interface/Loading.../' modules/luci-base/root/www/index.html
+
+# 默认语言：中文
+sed -i 's/LUCI_DEPENDS:= \\/LUCI_DEPENDS:=+@LUCI_LANG_zh_Hans \\/' collections/luci/Makefile
+
+# 菜单调整
+sed -i 's/59/20/' applications/luci-app-ddns/root/usr/share/luci/menu.d/luci-app-ddns.json
+sed -i -e '/order/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' applications/luci-app-xfrpc/root/usr/share/luci/menu.d/luci-app-xfrpc.json
+sed -i -e '/order/d' -e 's/"title": "UPnP IGD & PCP",/"title": "UPnP IGD & PCP",\n\t\t"order": 22,/' applications/luci-app-upnp/root/usr/share/luci/menu.d/luci-app-upnp.json
+sed -i -e '/order/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' applications/luci-app-uhttpd/root/usr/share/luci/menu.d/luci-app-uhttpd.json
+sed -i 's/services/network/g' applications/luci-app-wifischedule/root/usr/share/luci/menu.d/luci-app-wifischedule.json
+
 # 文案调整
-sed -i -e 's/"ShadowSocksR Plus+ 设置"/"科学上网设置"\n\nmsgid "ShadowSocksR Plus+"\nmsgstr "科学上网"/' -e 's/shadowsocks rust版本/Shadowsocks/' package/helloworld/luci-app-ssr-plus/po/zh-cn/ssr-plus.po
+sed -i 's/动态 DNS/动态域名/g' applications/luci-app-ddns/po/zh_Hans/ddns.po
 
-sed -i 's/msgstr "Docker"/msgstr "容器"/' feeds/luci/applications/luci-app-dockerman/po/$ZHCN/dockerman.po
-sed -i 's/msgstr "存储卷"/msgstr "存储"/' feeds/luci/applications/luci-app-dockerman/po/$ZHCN/dockerman.po
+#sed -i 's/<abbr title=\\"发光二极管\\">LED<\/abbr> 配置/灯光配置/' modules/luci-base/po/zh_Hans/base.po
+sed -i -e 's/"LED 配置"/"灯光配置"/' \
+	-e 's/备份与升级/备份升级/' \
+	-e 's/msgstr "路由"/msgstr "路由规则"/' \
+	-e ':a;N;s/msgid "Mount Points"\nmsgstr "挂载点"/msgid "Mount Points"\nmsgstr "挂载位置"/;$!ba' \
+	-e ':a;N;s/msgid "Reboot"\nmsgstr "重启"/msgid "Reboot"\nmsgstr "重新启动"/;$!ba' \
+	-e 's/DHCP\/DNS/主机域名/' \
+	-e 's/"防火墙"/"防火长城"/' modules/luci-base/po/zh_Hans/base.po
 
-sed -i 's/"frp 服务器"/"公网穿透"/' feeds/luci/applications/luci-app-frps/po/$ZHCN/frps.po
-sed -i 's/"frp 客户端"/"内网穿透"/' feeds/luci/applications/luci-app-frpc/po/$ZHCN/$FRPC.po
-#sed -i 's/msgstr "Reverse proxy"/msgstr "内网穿透"/' feeds/luci/applications/luci-app-xfrpc/po/zh_Hans/frpc.po
+sed -i 's/"防火墙"/"防火长城"/' applications/luci-app-firewall/po/zh_Hans/firewall.po
+sed -i 's/msgstr "Aria2"/msgstr "下载工具"/' applications/luci-app-aria2/po/zh_Hans/aria2.po
 
-sed -i 's/msgstr "UPnP"/msgstr "端口映射"/' feeds/luci/applications/luci-app-upnp/po/$ZHCN/upnp.po
-sed -i 's/自定义命令/自定命令/' feeds/luci/applications/luci-app-commands/po/$ZHCN/commands.po
-sed -i 's/msgstr "uHTTPd"/msgstr "网页服务"/' feeds/luci/applications/luci-app-uhttpd/po/$ZHCN/uhttpd.po
-sed -i 's/msgstr "Transmission"/msgstr "比特传输"/' feeds/luci/applications/luci-app-transmission/po/$ZHCN/transmission.po
-sed -i 's/"WiFi 计划"/"无线计划"/' feeds/luci/applications/luci-app-wifischedule/po/$ZHCN/wifischedule.po
+sed -i 's/msgstr "Docker"/msgstr "容器"/' applications/luci-app-dockerman/po/zh_Hans/dockerman.po
+
+sed -i 's/"frp 服务器"/"公网穿透"/' applications/luci-app-frps/po/zh_Hans/frps.po
+sed -i 's/"frp 客户端"/"内网穿透"/' applications/luci-app-frpc/po/zh_Hans/frpc.po
+
+sed -i 's/"UPnP IGD 和 PCP"/"端口映射"/' applications/luci-app-upnp/po/zh_Hans/upnp.po
+sed -i 's/自定义命令/自定命令/' applications/luci-app-commands/po/zh_Hans/commands.po
+sed -i 's/msgstr "uHTTPd"/msgstr "网页服务"/' applications/luci-app-uhttpd/po/zh_Hans/uhttpd.po
+sed -i 's/msgstr "Transmission"/msgstr "比特传输"/' applications/luci-app-transmission/po/zh_Hans/transmission.po
+sed -i 's/"WiFi 计划"/"无线计划"/' applications/luci-app-wifischedule/po/zh_Hans/wifischedule.po
 
 sed -i -e 's/允许匿名用户/访客/' \
 	-e 's/Apple Time-machine 共享/时间机器/' \
 	-e 's/创建权限掩码/创建掩码/' \
 	-e 's/目录权限掩码/目录掩码/' \
 	-e 's/禁用 Netbios/禁用 NetBIOS/' \
-	-e 's/禁用 Winbind/WinBind/' \
+	-e 's/禁用 Winbind/禁用 WinBind/' \
 	-e 's/编辑用来生成 samba 设置的模板。/编辑用来生成 Samba 设置的模板/' \
 	-e 's/启用 macOS 兼容共享/兼容 macOS 特性/' \
 	-e 's/仅来宾用户/仅访客/' \
@@ -116,17 +141,57 @@ sed -i -e 's/允许匿名用户/访客/' \
 	-e 's/强制 Root/强根/' \
 	-e 's/"目录"/"共享目录路径"/' \
 	-e 's/"名称"/"共享目录名称"/' \
-    feeds/luci/applications/luci-app-samba4/po/$ZHCN/samba4.po
+    applications/luci-app-samba4/po/zh_Hans/samba4.po
 
-sed -i ':a;N;s/msgid "Mount Points"\nmsgstr "挂载点"/msgid "Mount Points"\nmsgstr "挂载位置"/;$!ba' feeds/luci/modules/luci-base/po/$ZHCN/base.po
-sed -i ':a;N;s/msgid "Reboot"\nmsgstr "重启"/msgid "Reboot"\nmsgstr "重新启动"/;$!ba' feeds/luci/modules/luci-base/po/$ZHCN/base.po
-sed -i 's/DHCP\/DNS/主机域名/' feeds/luci/modules/luci-base/po/$ZHCN/base.po
-#sed -i 's/"无线"/"无线网络"/' feeds/luci/modules/luci-base/po/$ZHCN/base.po
+git diff
+cd ../..
 
-sed -i -e 's/阿里云盘 WebDAV/阿里云盘/' -e 's/msgstr "Refresh Token"/msgstr "刷新令牌"/' -e 's/(bytes)/（字节）/' -e 's/单位为//' -e 's/云盘驱动类型/云盘类型/' -e 's/：resource, backup/：资源盘、备份盘/' feeds/luci/applications/luci-app-aliyundrive-webdav/po/zh-cn/aliyundrive-webdav.po
+### packages
+# DDNS
+cd feeds/packages
+sed -i -e 's/myddns_ipv4/IPv4/' -e 's/myddns_ipv6/IPv6/' net/ddns-scripts/files/etc/config/ddns
 
-# 清理 macOS 文件和错误
-sed -i "s/'CVS' -o -name '.svn'/'CVS' -o -name '.DS_Store' -o -name '.svn'/" include/package-ipkg.mk
+# samba
+sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
+	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' \
+	-e 's/Samba on OpenWrt/Stroage/' net/samba4/files/samba.init
+sed -i 's/Samba on OpenWRT/Stroage/' net/samba4/files/samba.config
+
+# ksmbd
+sed -i -e 's/users" ] \&\& printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\read list = guest\\n\\twrite list = %s\\n" "\$users" || printf "\\tvalid users = %s\\n" "\$users")/' \
+	-e 's/read_only" ] \&\& printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' net/ksmbd-tools/files/ksmbd.init
+sed -i 's/Ksmbd on OpenWrt/Stroage/' net/ksmbd-tools/files/ksmbd.config
+sed -i 's/Ksmbd on OpenWrt/Stroage/' net/ksmbd-tools/files/ksmbd.config.example
+sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
+	-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/._*/.apdisk/lost+found/\n\t\#cache read buffers#' \
+	-e 's/\tcache trans buffers/\t#cache trans buffers/' net/ksmbd-tools/files/ksmbd.conf.template
+
+git diff
+cd ../..
+
+
+# luci-theme-argon
+cd package/luci-theme-argon
+sed -i 's#openwrt/luci#Yonsm/OponWrt#' ucode/template/themes/argon/footer.ut
+sed -i 's#openwrt/luci#Yonsm/OponWrt#' ucode/template/themes/argon/footer_login.ut
+git diff
+cd ../..
+
+# helloworld：去除 XRay@go，选择 Trojan@cpp
+cd package/helloworld
+sed -i 's/y if i386||x86_64||arm/n/' luci-app-ssr-plus/Makefile
+sed -i 's/if aarch64||arm||i386||x86_64/if aarch64_no||arm_no||i386_no||x86_64_no/' luci-app-ssr-plus/Makefile
+sed -i ':a;N;s/default n\nendef/default y\nendef/;$!ba' luci-app-ssr-plus/Makefile
+sed -i 's/=+libev/=+libopenssl-legacy +libev/' shadowsocksr-libev/Makefile
+sed -i -e 's/"ShadowSocksR Plus+ 设置"/"科学上网设置"\n\nmsgid "ShadowSocksR Plus+"\nmsgstr "科学上网"/' -e 's/shadowsocks rust版本/Shadowsocks/' luci-app-ssr-plus/po/zh-cn/ssr-plus.po
+git diff
+cd ../..
+
+cd package/aliyundrive-webdav
+sed -i -e 's/阿里云盘 WebDAV/阿里云盘/' -e 's/msgstr "Refresh Token"/msgstr "刷新令牌"/' -e 's/(bytes)/（字节）/' -e 's/单位为//' -e 's/云盘驱动类型/云盘类型/' -e 's/：resource, backup/：资源盘、备份盘/' openwrt/luci-app-aliyundrive-webdav/po/zh-cn/aliyundrive-webdav.po
+git diff
+cd ../..
 
 # 文件修改
 cp -r ${0%/*}/fix-files/* .
+

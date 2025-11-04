@@ -1,46 +1,13 @@
 #!/bin/bash
 
-if [ "$1" == "lede" ]; then
-	git clone https://github.com/coolsnowwolf/lede
-	cd lede
-else
-	git clone -b v23.05.3 https://github.com/openwrt/openwrt
-	cd openwrt
-fi
+git clone -b v24.10.4 https://github.com/openwrt/openwrt
+cd openwrt
 
 ./scripts/feeds update -a
-
-# Aliyun WebDAV
-git clone https://github.com/messense/aliyundrive-webdav.git
-rm -rf feeds/packages/multimedia/aliyundrive-webdav
-ln -s ../../../aliyundrive-webdav/openwrt/aliyundrive-webdav feeds/packages/multimedia/aliyundrive-webdav
-rm -rf feeds/luci/applications/luci-app-aliyundrive-webdav
-ln -s ../../../aliyundrive-webdav/openwrt/luci-app-aliyundrive-webdav feeds/luci/applications/luci-app-aliyundrive-webdav
-
-if [ "$1" == "lede" ]; then
-	# 修复 GCC 编译不成功的问题
-	# rm -rf feeds/packages/devel/gcc
-	# svn export https://github.com/openwrt/packages/trunk/devel/gcc feeds/packages/devel/gcc
-
-	# XFRPC
-	rm -rf feeds/luci/applications/luci-app-xfrpc
-	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-xfrpc feeds/luci/applications/luci-app-xfrpc
-	rm -rf feeds/packages/net/xfrpc
-	svn export https://github.com/openwrt/packages/trunk/net/xfrpc feeds/packages/net/xfrpc
-
-	# KSMBD
-	rm -rf feeds/luci/applications/luci-app-ksmbd
-	svn export https://github.com/openwrt/luci/trunk/applications/luci-app-ksmbd feeds/luci/applications/luci-app-ksmbd
-else
-	git clone https://github.com/jerrykuku/luci-theme-argon.git feeds/luci/themes/luci-theme-argon
-
-	mkdir -p package/feeds/luci
-	mkdir -p package/feeds/packages
-	ln -s ../../../feeds/luci/themes/luci-theme-argon package/feeds/luci/
-	ln -s ../../../feeds/packages/multimedia/aliyundrive-webdav package/feeds/packages/
-	ln -s ../../../feeds/luci/applications/luci-app-aliyundrive-webdav package/feeds/luci/
-fi
-
 ./scripts/feeds install -a
 
-git clone --depth=1  -b main https://github.com/fw876/helloworld.git package/helloworld
+cd package
+git clone https://github.com/jerrykuku/luci-theme-argon.git
+#git clone https://github.com/messense/aliyundrive-webdav.git
+git clone --depth=1  https://github.com/fw876/helloworld.git
+cd ..

@@ -1,4 +1,4 @@
 #!/bin/bash
-[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
 make download -j8 $1

@@ -1,5 +1,5 @@
 #!/bin/bash
-[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
 if [ -z $1 ]; then
 	echo $0 clean: 仅清理编译结果（bin 目录）

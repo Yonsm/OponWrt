@@ -1,5 +1,5 @@
 #!/bin/bash
-[ $(basename `pwd`) = openwrt ] || [ $(basename `pwd`) = lede ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || cd ${0%/*}/lede || exit
+[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
 # TODO: Discard fix
 
@@ -8,5 +8,9 @@ git pull
 ./scripts/feeds install -a
 
 cd package/helloworld
+git pull
+cd ../..
+
+cd package/luci-theme-argon
 git pull
 cd ../..
