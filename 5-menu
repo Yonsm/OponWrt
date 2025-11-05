@@ -6,6 +6,7 @@ if [ ! -z $1 ]; then
 	ln -sf $CONFIG .config
 
 	USB=1
+	MODTOOL=0
 	case "$1" in
 	CM520*)
 		MAGIC=b5ab1d6f6247c989eccb311be6c450fd
@@ -41,12 +42,14 @@ if [ ! -z $1 ]; then
 		BOARD=armsr
 		TARGET=armv8
 		DEVICE=generic
+		MODTOOL=1
 		;;
 	X64*)
 		MAGIC=e496746edd89318b9810e48e36a8bd9c
 		BOARD=x86
 		TARGET=64
 		DEVICE=DEVICE_generic
+		MODTOOL=1
 		;;
 	*)
 		MAGIC=00000000000000000000000000000000
@@ -62,41 +65,65 @@ if [ ! -z $1 ]; then
 	if [ ! -f $CONFIG ] || [ "$2" == "-f" ]; then
 		cat <<EOF > $CONFIG
 # CONFIG_PACKAGE_mkf2fs is not set
-# CONFIG_PACKAGE_kmod-fs-f2fs is not set
+CONFIG_BUSYBOX_CUSTOM=y
+CONFIG_BUSYBOX_CONFIG_LSOF=y
+CONFIG_BUSYBOX_CONFIG_TELNET=y
+CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT="/usr/bin/go"
 EOF
 
-		[[ $1 != *\+NOWING* ]] && echo "CONFIG_PACKAGE_wing=y" >> $CONFIG
+		[ ! -z $DEVICE ] && cat <<EOF >> $CONFIG
+CONFIG_TARGET_${BOARD}=y
+CONFIG_TARGET_${BOARD}_${TARGET}=y
+CONFIG_TARGET_${BOARD}_${TARGET}_${DEVICE}=y
+EOF
 
-		if [ $USB == 1 ]; then
-			cat <<EOF >> $CONFIG
+		[ $USB == 1 ] && cat <<EOF >> $CONFIG
+CONFIG_BUSYBOX_CONFIG_BLKID=y
+CONFIG_BUSYBOX_CONFIG_FEATURE_BLKID_TYPE=y
+CONFIG_BUSYBOX_CONFIG_EJECT=y
+CONFIG_BUSYBOX_CONFIG_FDISK=y
+CONFIG_BUSYBOX_CONFIG_FEATURE_FDISK_WRITABLE=y
+CONFIG_BUSYBOX_CONFIG_FEATURE_GPT_LABEL=y
+CONFIG_BUSYBOX_CONFIG_FEATURE_FDISK_ADVANCED=y
+CONFIG_BUSYBOX_CONFIG_FSCK=y
+CONFIG_BUSYBOX_CONFIG_HDPARM=y
+CONFIG_BUSYBOX_CONFIG_LOSETUP=y
+CONFIG_BUSYBOX_CONFIG_LSUSB=y
+CONFIG_BUSYBOX_CONFIG_MKFS_EXT2=y
+CONFIG_BUSYBOX_CONFIG_MKFS_VFAT=y
+CONFIG_BUSYBOX_CONFIG_TUNE2FS=y
 CONFIG_PACKAGE_block-mount=y
 CONFIG_PACKAGE_kmod-fs-exfat=y
 CONFIG_PACKAGE_kmod-fs-ext4=y
+CONFIG_PACKAGE_kmod-fs-ntfs3=y
 CONFIG_PACKAGE_kmod-fs-vfat=y
 CONFIG_PACKAGE_kmod-nls-cp936=y
 CONFIG_PACKAGE_kmod-usb-storage=y
 CONFIG_PACKAGE_luci-app-aria2=y
 CONFIG_PACKAGE_luci-app-hd-idle=y
 CONFIG_PACKAGE_ariang=y
-CONFIG_PACKAGE_blkid=y
-CONFIG_PACKAGE_eject=y
-CONFIG_PACKAGE_hdparm=y
-CONFIG_PACKAGE_lsblk=y
-CONFIG_PACKAGE_tune2fs=y
-CONFIG_PACKAGE_fdisk=y
-CONFIG_PACKAGE_gdisk=y
 CONFIG_PACKAGE_resize2fs=y
-CONFIG_PACKAGE_kmod-fs-ntfs3=y
-CONFIG_PACKAGE_dosfstools=y
+CONFIG_PACKAGE_gdisk=y
 EOF
 
-			[ "$DEVICE" != "DEVICE_lenovo_newifi-y1" ] && echo "CONFIG_PACKAGE_luci-app-aliyundrive-webdav=y" >> $CONFIG
-			if [[ $1 = *\+SMB4* ]] || [[ $1 = N1* ]] || [[ $1 = X64* ]]; then
-				echo "CONFIG_PACKAGE_luci-app-samba4=y" >> $CONFIG
-			else
-				echo "CONFIG_PACKAGE_luci-app-ksmbd=y" >> $CONFIG
-				echo "CONFIG_PACKAGE_ksmbd-avahi-service=y" >> $CONFIG
-			fi
+		[[ $1 != *\+NOWING* ]] && echo "CONFIG_PACKAGE_wing=y" >> $CONFIG
+		#[ $USB == 1 ] && [ "$DEVICE" != "DEVICE_lenovo_newifi-y1" ] && echo "CONFIG_PACKAGE_luci-app-aliyundrive-webdav=y" >> $CONFIG
+
+		[ $MODTOOL == 1 ] && cat <<EOF >> $CONFIG
+CONFIG_BUSYBOX_CONFIG_DEPMOD=y
+CONFIG_BUSYBOX_CONFIG_INSMOD=y
+CONFIG_BUSYBOX_CONFIG_LSMOD=y
+CONFIG_BUSYBOX_CONFIG_FEATURE_LSMOD_PRETTY_2_6_OUTPUT=y
+CONFIG_BUSYBOX_CONFIG_MODINFO=y
+CONFIG_BUSYBOX_CONFIG_MODPROBE=y
+CONFIG_BUSYBOX_CONFIG_RMMOD=y
+EOF
+
+		if [[ $1 = *\+SMB4* ]] || [[ $1 = N1* ]] || [[ $1 = X64* ]]; then
+			echo "CONFIG_PACKAGE_luci-app-samba4=y" >> $CONFIG
+		else
+			echo "CONFIG_PACKAGE_luci-app-ksmbd=y" >> $CONFIG
+			echo "CONFIG_PACKAGE_ksmbd-avahi-service=y" >> $CONFIG
 		fi
 
 		[[ $1 = *\+HASS* ]] && cat <<EOF >> $CONFIG
@@ -110,27 +137,17 @@ CONFIG_PACKAGE_ffmpeg=y
 EOF
 # CONFIG_PACKAGE_python3-cffi=y
 
-		if [[ $1 = *\+DOCKER* ]]; then
-			cat <<EOF >> $CONFIG
+		[[ $1 = *\+DOCKER* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_luci-app-dockerman=y
 CONFIG_PACKAGE_dockerd=y
 EOF
-			[[ $1 = X64* ]]  && cat <<EOF >> $CONFIG
+
+		[[ $1 = *\+DOCKER* ]] && [[ $1 = X64* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_kmod-macvlan=y
 CONFIG_PACKAGE_kmod-dummy=y
 EOF
-		fi
 
-		[ ! -z $DEVICE ] && cat <<EOF >> $CONFIG
-CONFIG_TARGET_${BOARD}=y
-CONFIG_TARGET_${BOARD}_${TARGET}=y
-CONFIG_TARGET_${BOARD}_${TARGET}_${DEVICE}=y
-EOF
-
-		echo "CONFIG_GOLANG_EXTERNAL_BOOTSTRAP_ROOT=\"`which go`\"" >> $CONFIG
-
-
-		[[ $1 = N1* ]]  && cat <<EOF >> $CONFIG
+		[[ $1 = N1* ]] && cat <<EOF >> $CONFIG
 # CONFIG_TARGET_ROOTFS_CPIOGZ is not set
 # CONFIG_TARGET_ROOTFS_EXT4FS is not set
 # CONFIG_TARGET_ROOTFS_SQUASHFS is not set
@@ -138,19 +155,19 @@ EOF
 CONFIG_BRCMFMAC_SDIO=y
 # CONFIG_BRCMFMAC_USB is not set
 # CONFIG_BRCMFMAC_PCIE is not set
-CONFIG_BTRFS_PROGS_ZSTD=y
 CONFIG_PACKAGE_kmod-usb-net=y
 CONFIG_PACKAGE_kmod-brcmfmac=y
 CONFIG_PACKAGE_kmod-mac80211=y
 CONFIG_PACKAGE_wpa-cli=y
 CONFIG_PACKAGE_wpad-basic=y
-CONFIG_PACKAGE_kmod-mt76x0u=y
-CONFIG_PACKAGE_btrfs-progs=y
 CONFIG_PACKAGE_kmod-usb2=y
 EOF
+#CONFIG_PACKAGE_kmod-mt76x0u=y
+#CONFIG_BTRFS_PROGS_ZSTD=y
+#CONFIG_PACKAGE_btrfs-progs=y
 
-		if [[ $1 = X64* ]]; then
-			cat <<EOF >> $CONFIG
+		[[ $1 = X64* ]] && cat <<EOF >> $CONFIG
+CONFIG_BUSYBOX_CONFIG_LSPCI=y
 CONFIG_TARGET_ROOTFS_TARGZ=y
 # CONFIG_TARGET_ROOTFS_SQUASHFS is not set
 # CONFIG_GRUB_IMAGES is not set
@@ -176,7 +193,8 @@ CONFIG_PACKAGE_openssl-util=y
 CONFIG_PACKAGE_kmod-usb2=y
 CONFIG_PACKAGE_kmod-usb3=y
 EOF
-			[[ $1 = *\+WIFI* ]] && cat <<EOF >> $CONFIG
+
+		[[ $1 = X64* ]] && [[ $1 = *\+WIFI* ]] && cat <<EOF >> $CONFIG
 CONFIG_PACKAGE_hostapd=y
 CONFIG_PACKAGE_kmod-mac80211=y
 CONFIG_PACKAGE_wireless-regdb=y
@@ -191,11 +209,8 @@ EOF
 # CONFIG_PACKAGE_pciutils=y
 # CONFIG_PACKAGE_wpa-cli=y
 # CONFIG_PACKAGE_wpad-basic=y
-		fi
-
 	fi
 
-	# N1
 	rm -rf files
 	[[ $1 = N1* ]] && ln -sf ${0%/*}/n1-files files
 fi

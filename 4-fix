@@ -11,7 +11,7 @@ sed -i 's/$(SCRIPT_DIR)\/kconfig.pl $(LINUX_DIR)\/.config | $(MKHASH) md5/cat $(
 # 默认软件包
 sed -i -e 's/	ppp-mod-pppoe/	luci-theme-argon ddns-scripts-dnspod firewall4 nftables kmod-nft-offload/' \
 	-e '/dnsmasq \\/d' -e '/firewall4 \\/d' -e '/nftables \\/d' -e '/kmod-nft-offload \\/d' -e '/odhcp6c \\/d' -e '/odhcpd-ipv6only \\/d' -e '/ppp \\/d' \
-	-e 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp \\/' include/target.mk
+	-e 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp luci-app-xfrpc \\/' include/target.mk
 
 # 默认配置
 sed -i 's/192.168.1.1/192.168.2.1/' package/base-files/files/bin/config_generate
@@ -125,23 +125,20 @@ sed -i 's/msgstr "Transmission"/msgstr "比特传输"/' applications/luci-app-tr
 sed -i 's/"WiFi 计划"/"无线计划"/' applications/luci-app-wifischedule/po/zh_Hans/wifischedule.po
 
 sed -i -e 's/允许匿名用户/访客/' \
+	-e 's/允许旧协议与身份验证（不安全）。/允许旧协议/' \
 	-e 's/Apple Time-machine 共享/时间机器/' \
+	-e 's/可浏览/浏览/' \
 	-e 's/创建权限掩码/创建掩码/' \
 	-e 's/目录权限掩码/目录掩码/' \
 	-e 's/禁用 Netbios/禁用 NetBIOS/' \
 	-e 's/禁用 Winbind/禁用 WinBind/' \
-	-e 's/编辑用来生成 samba 设置的模板。/编辑用来生成 Samba 设置的模板/' \
+	-e 's/编辑用于生成 samba 配置的模板。/编辑用来生成 Samba 配置的模板/' \
 	-e 's/启用 macOS 兼容共享/兼容 macOS 特性/' \
-	-e 's/仅来宾用户/仅访客/' \
-	-e 's/继承所有者/继承权限/' \
-	-e 's/Time-machine 大小（GB）/机器大小/' \
-	-e 's/可浏览/浏览/' \
-	-e 's/VFS 对象/虚拟对象/' \
-	-e 's/继承权限/继承/' \
 	-e 's/强制 Root/强根/' \
-	-e 's/"目录"/"共享目录路径"/' \
-	-e 's/"名称"/"共享目录名称"/' \
-    applications/luci-app-samba4/po/zh_Hans/samba4.po
+	-e 's/仅来宾用户/仅访客/' \
+	-e 's/Time-machine 大小（GB）/机器大小/' \
+	-e 's/VFS 对象/虚拟对象/' \
+	applications/luci-app-samba4/po/zh_Hans/samba4.po
 
 git diff
 cd ../..
@@ -172,8 +169,8 @@ cd ../..
 
 # luci-theme-argon
 cd package/luci-theme-argon
-sed -i 's#openwrt/luci#Yonsm/OponWrt#' ucode/template/themes/argon/footer.ut
-sed -i 's#openwrt/luci#Yonsm/OponWrt#' ucode/template/themes/argon/footer_login.ut
+sed -i -e 's#openwrt/luci#Yonsm/OponWrt#' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/' -e 's/-{{ version.distrevision }}//' ucode/template/themes/argon/footer.ut
+sed -i -e 's#openwrt/luci#Yonsm/OponWrt#' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/' -e 's/-{{ version.distrevision }}//' ucode/template/themes/argon/footer_login.ut
 git diff
 cd ../..
 
