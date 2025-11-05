@@ -24,7 +24,7 @@ boardflags=0x00400201
 boardflags2=0xc0800000
 boardflags3=0x40000180
 #boardnum=57410
-macaddr=06:B6:75:3D:01:90
+macaddr=06:B4:E9:1A:CB:AE
 jtag_irw=38
 
 #Regulatory specific
