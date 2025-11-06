@@ -30,17 +30,24 @@ for FILE in package/network/config/firewall/files/firewall.config package/networ
 grep Allow-HTTPS $FILE || cat <<\EOF >>$FILE
 
 config rule
-	option name		Allow-HTTPS
-	option src		wan
-	option proto		tcp
-	option dest_port	81
-	option target		ACCEPT
-
-config rule
 	option name		Allow-SSH
 	option src		wan
 	option proto		tcp
 	option dest_port	22
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTP
+	option src		wan
+	option proto		tcp
+	option dest_port	80
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTPS
+	option src		wan
+	option proto		tcp
+	option dest_port	81
 	option target		ACCEPT
 EOF
 done
