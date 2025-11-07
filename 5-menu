@@ -38,7 +38,7 @@ if [ ! -z $1 ]; then
 		USB=0
 		;;
 	N1*)
-		MAGIC=b388b781da4bc000e0f3f3a5a1a34eac-r1
+		MAGIC=b388b781da4bc000e0f3f3a5a1a34eac
 		BOARD=armsr
 		TARGET=armv8
 		DEVICE=generic
