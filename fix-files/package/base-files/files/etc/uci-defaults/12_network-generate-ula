@@ -7,6 +7,11 @@ config command
 config command
 	option name '网络接口'
 	option command 'ifconfig'
+
+config command
+	option name '科学上网'
+	option command 'wing'
+	option param '1'
 EOF
 
 [ "$(uci -q get network.globals.ula_prefix)" != "auto" ] && exit 0

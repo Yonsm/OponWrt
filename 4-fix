@@ -101,7 +101,7 @@ sed -i 's/LUCI_DEPENDS:= \\/LUCI_DEPENDS:=+@LUCI_LANG_zh_Hans \\/' collections/l
 # 菜单调整
 sed -i 's/59/20/' applications/luci-app-ddns/root/usr/share/luci/menu.d/luci-app-ddns.json
 sed -i -e '/order/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' applications/luci-app-xfrpc/root/usr/share/luci/menu.d/luci-app-xfrpc.json
-sed -i -e '/order/d' -e 's/"title": "UPnP IGD & PCP",/"title": "UPnP IGD & PCP",\n\t\t"order": 22,/' applications/luci-app-upnp/root/usr/share/luci/menu.d/luci-app-upnp.json
+sed -i -e '/order/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' applications/luci-app-upnp/root/usr/share/luci/menu.d/luci-app-upnp.json
 sed -i -e '/order/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' applications/luci-app-uhttpd/root/usr/share/luci/menu.d/luci-app-uhttpd.json
 sed -i 's/services/network/g' applications/luci-app-wifischedule/root/usr/share/luci/menu.d/luci-app-wifischedule.json
 

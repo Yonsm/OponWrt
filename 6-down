@@ -2,3 +2,5 @@
 [ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
 
 make download -j8 $1
+
+# src/gz openwrt_kmods https://mirrors.cloud.tencent.com/openwrt/releases/24.10.4/targets/armsr/armv8/kmods/6.6.110-1-b388b781da4bc000e0f3f3a5a1a34eac

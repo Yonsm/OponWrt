@@ -1,21 +1,21 @@
 #!/bin/sh
 # WING_URL=
 # _PROT=socks5; _USER=; _PASS=; _HOST=192.168.1.8; _PORT=; _PATH=; _ARGS=; _HASH=
-
-if [ -f /etc/openwrt_release ]; then
+if [ -f /etc/config/miwifi ]; then
+	CDIR=/data/wing
+	_MODE=ROUTER
+	_OS=MIWIFI
+	_GFW_LIST=$CDIR
+	_DNSMASQ_CONF=/tmp/dnsmasq.d
+	PATH=$CDIR:$PATH
+	export LD_LIBRARY_PATH=$CDIR:$LD_LIBRARY_PATH
+elif [ -f /etc/openwrt_release ]; then
 	_MODE=ROUTER
 	_OS=OPENWRT
 	_GFW_LIST=/etc
 	#_DNSMASQ_CONF=/tmp/dnsmasq.d
 	_DNSMASQ_CONF=/etc/dnsmasq.conf
 	! grep gfwlist.txt /etc/init.d/dnsmasq > /dev/null && sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
-elif [ -f /etc/config/miwifi ]; then
-	_MODE=ROUTER
-	_OS=MIWIFI
-	_GFW_LIST=/data/wing
-	_DNSMASQ_CONF=/tmp/dnsmasq.d
-	PATH=/data/wing:$PATH
-	export LD_LIBRARY_PATH=/data/wing:$LD_LIBRARY_PATH
 elif [ -d /etc/storage ]; then
 	_MODE=ROUTER
 	_OS=PADAVAN
@@ -49,7 +49,7 @@ log() {
 log $1 "Wing to World on $OS in $_MODE mode"
 
 usage() {
-	echo "Usage: $0 <[start]|stop|restart|pause|resume|update|install|status|-s 2/t/s/y/*|-h>"
+	echo "Usage: $0 <[start]|stop|restart|pause|resume|update|status|-s 2/t/s/y/*|-h>"
 	echo
 	echo "$0 [-v[0-5]] <URL>"
 	echo
@@ -63,7 +63,7 @@ update() {
 	_FMT=${_GFW_LIST##*.}
 	[ "$_FMT" = conf -o "$_FMT" = pac ] && _GFW_TMP=/tmp/gfwlist.txt || _GFW_TMP=$_GFW_LIST
 
-	curl -k -o $_GFW_TMP https://raw.githubusercontent.com/Yonsm/OponWrt/main/fix-files/package/helloworld/wing/gfwlist.txt || (echo "githubusercontent.com" > $_GFW_TMP; echo "Update gfwlist failed! You should run wing update again.")
+	curl -k -o $_GFW_TMP https://yonsm.github.io/OponWrt/fix-files/package/helloworld/wing/gfwlist.txt || (echo "githubusercontent.com" > $_GFW_TMP; echo "Update gfwlist failed! You should run wing update again.")
 	if [ $_FMT = conf ]; then
 		sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP > $_GFW_LIST
 		sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' $_GFW_TMP >> $_GFW_LIST
@@ -280,21 +280,21 @@ proxy() {
 }
 
 resolve() {
-    grep '^[[:digit:].]*$' <<< "$_HOST" 1>/dev/null && return
+	[ $_OS = MACOS ] && return
 
 	CNT=0
-	while [ $CNT -le 20 ]; do
+	while [ $CNT -le 30 ]; do
 		local IP=`nslookup $_HOST | awk -F": " '/^Address/ {if (NR>4){print $2;exit 1}}' | cut -d' ' -f 1`
 		log $1 "Resolve $_HOST=>$IP"
 		case "$IP" in
 		192.168.*|127.0.*|"")
 			;;
 		*)
-			_HOST=$IP
+			#_HOST=$IP
 			return
 			;;
 		esac
-		sleep 3
+		sleep 5
 		let CNT++
 	done
 }
@@ -379,6 +379,7 @@ start() {
 		;;
 	esac
 
+	touch /tmp/wing.log
 	proxy $1 $_PROT 127.0.0.1 1080
 
 	if [ $1 -ge 4 ]; then
@@ -405,7 +406,7 @@ stop() {
 	if [ $_MODE = ROUTER ]; then
 		ipset flush gfwlist
 		ipset destroy gfwlist
-		[ "$1" == "-R" ] && return
+		[ "$1" == "-R" ] && sleep 1 && return
 
 		prepare
 
@@ -421,19 +422,6 @@ stop() {
 	fi
 
 	echo Wing service stopped
-}
-
-install() {
-	if [ $_OS = MIWIFI ]; then
-		uci set firewall.wing=include
-		uci set firewall.wing.type="script"
-		uci set firewall.wing.path="/data/wing/wing restart $1"
-		uci set firewall.wing.enabled="1"
-		uci commit firewall
-		uci show firewall.wing
-	else
-		echo TODO
-	fi
 }
 
 status() {
@@ -455,7 +443,6 @@ stop)
 	;;
 restart)
 	stop -R
-	sleep 1
 	start 5 "$2"
 	;;
 pause)
@@ -470,9 +457,6 @@ resume)
 update)
 	update "$2" "$3"
 	;;
-install)
-	install "$2"
-	;;
 -s|status)
 	status "$2"
 	;;
@@ -486,6 +470,7 @@ install)
 	start ${1:2} "$2"
 	;;
 *)
-	$0 start "$1" &
+	[ -f /tmp/wing.log ] && stop -R
+	start 5 "$1"
 	;;
 esac
