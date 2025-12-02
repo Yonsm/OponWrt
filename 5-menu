@@ -9,13 +9,13 @@ if [ ! -z $1 ]; then
 	MODTOOL=0
 	case "$1" in
 	CM520*)
-		MAGIC=b5ab1d6f6247c989eccb311be6c450fd
+		MAGIC=eaef302ef5ab82928154706763925f63
 		BOARD=ipq40xx
 		TARGET=generic
 		DEVICE=DEVICE_mobipromo_cm520-79f
 		;;
 	K2P*|C5*|NEWIFI3*)
-		MAGIC=9c242f353867f49a96054ff8c9f2c460
+		MAGIC=ae7dcdf01cb63b83c64f5cb8d8960511
 		BOARD=ramips
 		TARGET=mt7621
 		case "$1" in
@@ -25,13 +25,13 @@ if [ ! -z $1 ]; then
 		esac
 		;;
 	Y1*)
-		MAGIC=0e8896b32ade622c6f0cbd83ee589109
+		MAGIC=1da0e98c07ed38aba4221ce4e4cd3f84
 		BOARD=ramips
 		TARGET=mt7620
 		DEVICE=DEVICE_lenovo_newifi-y1
 		;;
 	RMAX6000*)
-		MAGIC=88bbb0b8c80abf953ee5e7001a2ef514
+		MAGIC=6a9e125268c43e0bae8cecb014c8ab03
 		BOARD=mediatek
 		TARGET=filogic
 		[ $1 == RMAX6000+STOCK ] && DEVICE=DEVICE_xiaomi_redmi-router-ax6000-stock || DEVICE=DEVICE_xiaomi_redmi-router-ax6000
@@ -45,7 +45,7 @@ if [ ! -z $1 ]; then
 		MODTOOL=1
 		;;
 	X64*)
-		MAGIC=e496746edd89318b9810e48e36a8bd9c
+		MAGIC=484466e2719a743506c36b4bb2103582
 		BOARD=x86
 		TARGET=64
 		DEVICE=DEVICE_generic
@@ -61,6 +61,9 @@ if [ ! -z $1 ]; then
 	VERMAGIC=.vermagic.${BOARD}_${TARGET}
 	[ ! -f $VERMAGIC ] && echo $MAGIC > $VERMAGIC
 	ln -sf $VERMAGIC .vermagic
+
+	sed -i "/openwrt_kmods/d" package/system/opkg/files/customfeeds.conf
+	echo "src/gz openwrt_kmods  https://mirrors.cloud.tencent.com/openwrt/releases/24.10.4/targets/$BOARD/$TARGET/kmods/6.6.110-1-$MAGIC" >> package/system/opkg/files/customfeeds.conf
 
 	if [ ! -f $CONFIG ] || [ "$2" == "-f" ]; then
 		cat <<EOF > $CONFIG

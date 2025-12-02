@@ -280,7 +280,7 @@ proxy() {
 }
 
 resolve() {
-	[ $_OS = MACOS ] && return
+	echo $_HOST | grep -qv '[^0-9.]' && return
 
 	CNT=0
 	while [ $CNT -le 30 ]; do
