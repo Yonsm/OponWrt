@@ -14,10 +14,10 @@ sed -i -e 's/	ppp-mod-pppoe/	luci-theme-argon ddns-scripts-dnspod firewall4 nfta
 	-e 's/router:=.*\\/router:=ppp ppp-mod-pppoe odhcp6c odhcpd-ipv6only dnsmasq-full kmod-fs-cifs kmod-nls-utf8 htop iperf3 openssh-sftp-server luci luci-app-commands luci-app-ddns luci-app-uhttpd luci-app-upnp luci-app-xfrpc \\/' include/target.mk
 
 # 默认配置
-sed -i 's/192.168.1.1/192.168.2.1/' package/base-files/files/bin/config_generate
+#sed -i 's/192.168.1.1/192.168.2.1/' package/base-files/files/bin/config_generate
 sed -i 's#root:::#root:$1$wEOT4uTc$RlavsXg9yqMy/6V7ZlXHh1:19906:#' package/base-files/files/etc/shadow
 
-sed -i -e 's/OpenWrt/Router/' -e "s/disabled='1'/disabled='0'/" -e 's/none/psk2/' -e 's/key || ""/key || "asdfqwer"/' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
+sed -i -e 's/OpenWrt/Router/' -e "s/0 : 1/0 : 0/" -e 's/none/psk2/' -e 's/key || ""/key || "asdfqwer"/' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
 
 # 软件源
 sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#' include/version.mk
