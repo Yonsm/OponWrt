@@ -6000,3 +6000,8 @@ bad.news
 dot.tk
 freenom.com
 x.com
+chat.com
+openai.com
+chatgpt.com
+grok.com
+
