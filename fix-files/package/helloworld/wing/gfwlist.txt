@@ -6003,5 +6003,9 @@ x.com
 chat.com
 openai.com
 chatgpt.com
+sora.com
 grok.com
-
+claude.ai
+civitai.com
+huggingface.co
+leonardo.ai
