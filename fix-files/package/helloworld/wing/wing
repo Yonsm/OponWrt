@@ -15,32 +15,27 @@ elif [ -f /etc/openwrt_release ]; then
 	_GFW_LIST=/etc
 	#_DNSMASQ_CONF=/tmp/dnsmasq.d
 	_DNSMASQ_CONF=/etc/dnsmasq.conf
-	! grep gfwlist.txt /etc/init.d/dnsmasq > /dev/null && sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
-elif [ -d /etc/storage ]; then
-	_MODE=ROUTER
-	_OS=PADAVAN
-	_GFW_LIST=/etc/storage/dnsmasq
-	_GFW_LIST_RO=/etc_ro/gfwlist.txt
-	_DNSMASQ_CONF=/etc/storage/dnsmasq/dnsmasq.conf
+	[ -f /etc/gfwlist.conf ] && ! grep -Fq /etc/gfwlist.conf /etc/init.d/dnsmasq && sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
 else
 	_MODE=SERVICE
 	if type networksetup >/dev/null 2>&1; then
 		[ -z "$WING_PAC" ] && WING_PAC=1
 		_OS=MACOS
 		_GFW_LIST=/Library/WebServer/Documents/gfwlist.pac
-		[ ! -f $_GFW_LIST ] && sudo chmod 777 /Library/WebServer/Documents
 	else
+		[ -n "$BASH_VERSION" ] || exec bash "$0" "$@"
 		_OS=LINUX
 		_GFW_LIST=./gfwlist.pac
 	fi
 fi
 
 if [ $_MODE = ROUTER ]; then
-	[ ! -d $_DNSMASQ_CONF ] && dnsmasq --help | grep gfwlist >/dev/null 2>&1 && _GFW_LIST=$_GFW_LIST/gfwlist.txt || _GFW_LIST=$_GFW_LIST/gfwlist.conf
+	[ -f $_GFW_LIST/gfwlist.conf ] && _GFW_LIST=$_GFW_LIST/gfwlist.conf || _GFW_LIST=$_GFW_LIST/gfwlist.txt
+	_GFW_LIST=${WING_GFW_LIST:-$_GFW_LIST}
 fi
 
 log() {
-	case "$1" in
+	case $1 in
 		0|1) echo "$2";;
 		2|3) echo "$2" >> /tmp/wing.log;;
 	esac
@@ -58,28 +53,96 @@ usage() {
 	exit 1
 }
 
+dns() {
+	local CONF=$_DNSMASQ_CONF LINE=
+	killall chinadns-ng dns2tcp dns-forwarder 2> /dev/null && sleep 1
+	if [ -d "$CONF" ]; then
+		CONF=$CONF/wing.conf
+		rm -f "$CONF"
+	elif [ -f "$CONF" ]; then
+		sed -i '/^# Wing DNS begin$/,/^# Wing DNS end$/d' "$CONF"
+	fi
+	[ "$1" = off ] && return
+
+	if type chinadns-ng >/dev/null 2>&1; then
+		if [ "${_GFW_LIST##*.}" = txt -a "$WING_DNSMASQ" != 1 ]; then
+			(chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N tag:gfw -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8 ||
+			 { [ $? = 1 ] && chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N g -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8; }) &
+			LINE="server=/#/127.0.0.1#5354"
+		else
+			(chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N --filter-qtype 64,65 -t tcp://8.8.8.8 ||
+			 { [ $? = 1 ] && chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N -t tcp://8.8.8.8; }) &
+		fi
+	elif type dns2tcp >/dev/null 2>&1; then
+		dns2tcp -L 0.0.0.0#5354 -R 8.8.8.8#53 &
+	else
+		dns-forwarder -p 5354 &
+	fi
+
+	{
+		echo '# Wing DNS begin'
+		if [ -n "$LINE" ]; then
+			echo "$LINE"
+		elif [ "${_GFW_LIST##*.}" = txt ]; then
+			sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST"
+			sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' "$_GFW_LIST"
+		else
+			echo "conf-file=$_GFW_LIST"
+		fi
+		echo '# Wing DNS end'
+	} >> "$CONF"
+	/etc/init.d/dnsmasq restart
+}
+
+install_pac() {
+	local SUDO=
+	[ -w "$(dirname "$2")" ] || SUDO=sudo
+	$SUDO install -m 644 "$1" "$2"
+}
+
 update() {
+	local ACTIVE_LIST=$_GFW_LIST
 	[ ! -z "$1" ] && _GFW_LIST="$1"
 	_FMT=${_GFW_LIST##*.}
-	[ "$_FMT" = conf -o "$_FMT" = pac ] && _GFW_TMP=/tmp/gfwlist.txt || _GFW_TMP=$_GFW_LIST
+	_GFW_TMP=$(mktemp /tmp/gfwlist.XXXXXX) || return 1
 
-	curl -k -o $_GFW_TMP https://yonsm.github.io/OponWrt/fix-files/package/helloworld/wing/gfwlist.txt || (echo "githubusercontent.com" > $_GFW_TMP; echo "Update gfwlist failed! You should run wing update again.")
-	if [ $_FMT = conf ]; then
-		sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP > $_GFW_LIST
-		sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' $_GFW_TMP >> $_GFW_LIST
-	elif [ $_FMT = pac ]; then
-		echo "var s = [" > $_GFW_LIST
-		sed -e 's/^/"/' -e 's/$/",/' $_GFW_TMP >> $_GFW_LIST
-		[ -z $2 ] && _IP=127.0.0.1 || _IP=$2
-		echo "]; function FindProxyForURL(u, h) { for (var i = 0; i < s.length; i++) { var r = s[i]; if (h == r || h.endsWith('.' + r)) return 'SOCKS5 $_IP:1080; DIRECT'; } return 'DIRECT'; }" >> $_GFW_LIST
-	else
-		return
+	if ! curl -fSs --connect-timeout 10 --max-time 60 -o $_GFW_TMP https://yonsm.github.io/OponWrt/fix-files/package/helloworld/wing/gfwlist.txt; then
+		echo "githubusercontent.com" > $_GFW_TMP
+		echo "yonsm.github.io" >> $_GFW_TMP
+		echo "Update gfwlist failed! You should run wing update $_GFW_LIST again."
 	fi
-	rm $_GFW_TMP
+	local TARGET=$_GFW_LIST.tmp SAVE="mv -f"
+	if [ $_OS = MACOS -a $_FMT = pac ]; then
+		TARGET=$(mktemp /tmp/gfwlist.pac.XXXXXX) || { rm $_GFW_TMP; return 1; }
+		SAVE=install_pac
+	fi
+	if [ $_FMT = conf ]; then
+		(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP &&
+		 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' $_GFW_TMP) > $TARGET
+	elif [ $_FMT = pac ]; then
+		[ -z "$2" ] && _IP=127.0.0.1 || _IP=$2
+		local PAC_PORT=${3:-1080}
+		(echo "var s = {" &&
+		 sed -e 's/^/"/' -e 's/$/":1,/' $_GFW_TMP &&
+		 echo "}; function FindProxyForURL(u, h) { for (;;) { if (s[h] === 1) return 'SOCKS5 $_IP:$PAC_PORT; DIRECT'; var i = h.indexOf('.'); if (i < 0) return 'DIRECT'; h = h.substring(i + 1); } }") > $TARGET
+	else
+		cat $_GFW_TMP > $TARGET
+	fi
+	if [ $? != 0 ] || ! $SAVE $TARGET $_GFW_LIST; then
+		rm -f $TARGET $_GFW_TMP
+		return 1
+	fi
+	rm -f $TARGET $_GFW_TMP
+	if [ $_MODE = ROUTER -a "$_GFW_LIST" = "$ACTIVE_LIST" ]; then
+		local CONF=$_DNSMASQ_CONF
+		[ -d "$CONF" ] && CONF=$CONF/wing.conf
+		grep -Fxq '# Wing DNS begin' "$CONF" 2>/dev/null && dns on
+	fi
+	return 0
 }
 
 split_str() {
-	case "$4" in
+	case $4 in
 	"")
 		export $1=
 		export $2=
@@ -96,7 +159,7 @@ split_str() {
 }
 
 rsplit_str() {
-	case "$4" in
+	case $4 in
 	"")
 		export $1=
 		export $2=
@@ -135,7 +198,7 @@ parse_uri() {
 
 parse_url() {
 	split_str _PROT _TEXT : "$1" R
-	case "$_TEXT" in
+	case $_TEXT in
 		//*) _TEXT="${_TEXT:2}"
 	esac
 	parse_uri "$_TEXT"
@@ -167,37 +230,32 @@ decode_b64() {
 }
 
 prepare() {
-	[ $_OS = MACOS ] && [ "$WING_PAC" != "1" ] && return
+	[ $_MODE = SERVICE ] && [ "$WING_PAC" != "1" ] && return 0
+	local IP=${1:-127.0.0.1} PORT=${2:-1080}
 
 	if [ ! -f $_GFW_LIST ]; then
-		if [ ! -z $_GFW_LIST_RO ] && [ -f $_GFW_LIST_RO ]; then
-			_GFW_LIST=$_GFW_LIST_RO
-		else
-			update
-		fi
+		update "$_GFW_LIST" "$IP" "$PORT"
 		[ $_OS = MACOS ] && [ "$WING_PAC" = "1" ] && sudo apachectl restart
 	fi
 }
 
 inject() {
 	if [ $_MODE = ROUTER ]; then
-		iptables -t nat $1 OUTPUT -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
-		iptables -t nat $1 PREROUTING -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
+		$_FW -t nat $1 OUTPUT -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
+		$_FW -t nat $1 PREROUTING -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
+		local ACTION=$1
+		[ $ACTION = -A ] && ACTION=-I
+		$_FW $ACTION OUTPUT -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
+		$_FW $ACTION FORWARD -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
 	elif [ $_OS = MACOS ]; then
 		if [ -z "$WING_NETWORK" ]; then
-			local SDEV=`route get example.com 2> /dev/null | grep interface`
-			local SDEV=${SDEV:13}
-			local IFS_BAK=$IFS
-			IFS=$'\n'
-			for LINE in `networksetup -listnetworkserviceorder`; do
-				echo $LINE | grep $SDEV > /dev/null 2>&1
-				if [ $? = 0 ]; then
-					WING_NETWORK=${LAST_LINE:4}
-					break
-				fi
-				LAST_LINE=$LINE
-			done
-			IFS=$IFS_BAK
+			local SDEV=`route -n get default 2> /dev/null | awk '/interface:/ {print $2; exit}'`
+			WING_NETWORK=`networksetup -listnetworkserviceorder | awk -v dev="$SDEV" '
+				/^\([0-9]+\) / { name = $0; sub(/^\([0-9]+\) /, "", name) }
+				/Device: / {
+					device = $0; sub(/^.*Device: /, "", device); sub(/\).*$/, "", device)
+					if (device == dev && name !~ /^\*/) { print name; exit }
+				}'`
 
 			[ -z "$WING_NETWORK" ] && echo "Could not find valid network" && exit 2
 		fi
@@ -217,17 +275,26 @@ inject() {
 				networksetup setautoproxyurl "$WING_NETWORK" http://127.0.0.1/gfwlist.pac ||
 				networksetup setsocksfirewallproxy "$WING_NETWORK" $2 $3
 		fi
+	elif [ $_OS = LINUX ]; then
+		case $1 in
+		-A)
+			echo "export ALL_PROXY=socks5h://$2:$3"
+			[ "$WING_PAC" != "1" ] || echo "PAC file: $_GFW_LIST (configure your application manually)"
+			;;
+		-D) echo "unset ALL_PROXY";;
+		-C) echo "Set ALL_PROXY in your shell to resume proxying.";;
+		esac
 	fi
 }
 
 proxy() {
-	prepare
+	prepare "$3" "$4"
 
 	if [ $_MODE = ROUTER ]; then
 		ulimit -n 65536
 
 		# ipt2socks
-		case "$2" in
+		case $2 in
 		*socks5)
 			local IPT2SOCKS_CMD="ipt2socks -s $3 -p $4 -b 0.0.0.0 -l 1088 -T -4 -R -j `cat /proc/cpuinfo|grep processor|wc -l`"
 			if [ $1 -ge 4 ]; then
@@ -254,39 +321,21 @@ proxy() {
 		#ipset add gfwlist 109.239.140.0/24
 		#ipset add gfwlist 149.154.160.0/20
 
-		# dns2tcp
-		if type dns2tcp>/dev/null 2>&1; then
-			dns2tcp -L 0.0.0.0#5354 -R 8.8.8.8#53 &
-		else
-			dns-forwarder -p 5354 &
-		fi
-
-		# dnsmasq
-		if [ -d $_DNSMASQ_CONF ]; then
-			if [ ! -f $_DNSMASQ_CONF/${_GFW_LIST##*/} ]; then
-				[ $_OS = OPENWRT ] && cp $_GFW_LIST $_DNSMASQ_CONF || ln -s $_GFW_LIST $_DNSMASQ_CONF
-				/etc/init.d/dnsmasq restart
-			fi
-		else
-			[ ${_GFW_LIST##*.} = txt ] && GFWLIST_LINE="gfwlist=$_GFW_LIST" || GFWLIST_LINE="conf-file=$_GFW_LIST"
-			if ! grep "$GFWLIST_LINE" $_DNSMASQ_CONF > /dev/null; then
-				echo "$GFWLIST_LINE" >> $_DNSMASQ_CONF
-				[ $_OS = PADAVAN ] && (killall dnsmasq; dnsmasq) || /etc/init.d/dnsmasq restart
-			fi
-		fi
+		dns on
 	fi
 
 	inject -A $3 $4
 }
 
 resolve() {
+	[ $_MODE = SERVICE ] && return
 	echo $_HOST | grep -qv '[^0-9.]' && return
 
 	CNT=0
 	while [ $CNT -le 30 ]; do
 		local IP=`nslookup $_HOST | awk -F": " '/^Address/ {if (NR>4){print $2;exit 1}}' | cut -d' ' -f 1`
 		log $1 "Resolve $_HOST=>$IP"
-		case "$IP" in
+		case $IP in
 		192.168.*|127.0.*|"")
 			;;
 		*)
@@ -326,12 +375,12 @@ start() {
 		parse_url $WING_URL
 	fi
 
-	case "$_PROT" in
+	case $_PROT in
 		*socks5) RUN_MODE=local;;
 		*) RUN_MODE=$_MODE-redir;;
 	esac
 
-	case "$_PROT" in
+	case $_PROT in
 	trojan*)
 		if [ $RUN_MODE = ROUTER-redir ]; then
 			local RUN_TYPE=nat
@@ -385,7 +434,7 @@ start() {
 	if [ $1 -ge 4 ]; then
 		$XCMD &
 	elif [ $1 -ge 2 ]; then
-		nohup "$XCMD" &> /tmp/wing.log &
+		nohup $XCMD &> /tmp/wing.log &
 	else
 		echo
 		echo "export WING_URL=\"`make_url`\""
@@ -400,7 +449,7 @@ start() {
 stop() {
 	inject -D 2> /dev/null
 
-	killall trojan ssr-local ssr-redir ss-local ss-redir ssr-client ipt2socks dns2tcp dns-forwarder 2> /dev/null
+	killall trojan ssr-local ssr-redir ss-local ss-redir ssr-client ipt2socks 2> /dev/null
 	rm /tmp/trojan.conf /tmp/ssr.conf /tmp/wing.log /tmp/ipt2socks.log 2> /dev/null
 
 	if [ $_MODE = ROUTER ]; then
@@ -408,33 +457,29 @@ stop() {
 		ipset destroy gfwlist
 		[ "$1" == "-R" ] && sleep 1 && return
 
-		prepare
-
-		if [ -d $_DNSMASQ_CONF ]; then
-			rm $_DNSMASQ_CONF/${_GFW_LIST##*/} && /etc/init.d/dnsmasq restart
-		else
-			[ ${_GFW_LIST##*.} = txt ] && GFWLIST_LINE="gfwlist=$_GFW_LIST" || GFWLIST_LINE="conf-file=$_GFW_LIST"
-			if grep "$GFWLIST_LINE" $_DNSMASQ_CONF > /dev/null; then
-				sed -i /${GFWLIST_LINE//\//\\/}/d $_DNSMASQ_CONF
-				[ $_OS = PADAVAN ] && (killall dnsmasq; dnsmasq) || /etc/init.d/dnsmasq restart
-			fi
-		fi
+		dns off
+		/etc/init.d/dnsmasq restart
 	fi
 
 	echo Wing service stopped
 }
 
 status() {
-	case "$1" in
+	case $1 in
 	2) tail -f /tmp/ipt2socks.log;;
-	t) iptables -t nat -L PREROUTING && iptables -t nat -L OUTPUT;;
+	t) $_FW -t nat -L PREROUTING && $_FW -t nat -L OUTPUT;;
 	s) ipset -L gfwlist;;
 	y) tail -f /tmp/syslog.log;;
 	*) tail -f /tmp/wing.log;;
 	esac
 }
 
-case "$1" in
+if [ $_MODE = ROUTER ]; then
+	type iptables-nft >/dev/null 2>&1 && _FW=iptables-nft || _FW=iptables
+	type $_FW >/dev/null 2>&1 || { echo "$_FW is required" >&2; exit 1; }
+fi
+
+case $1 in
 start)
 	start 5 "$2"
 	;;
@@ -455,7 +500,7 @@ resume)
 	inject -C || inject -A
 	;;
 update)
-	update "$2" "$3"
+	update "$2" "$3" "$4"
 	;;
 -s|status)
 	status "$2"
