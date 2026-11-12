@@ -33,6 +33,9 @@ build_single_preset() {
 	if [[ "$PRESET" != *"+NOWING"* ]]; then
 		cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
 	fi
+	if [[ "$PRESET" == X64* ]]; then
+		cp -a "$SCRIPT_DIR/extras/x86/"* "$WORK_FILES/"
+	fi
 	if [[ "$PRESET" == X64* ]] || [[ "$PRESET" == *"+SMB4"* ]]; then
 		cp -a "$SCRIPT_DIR/extras/samba4/"* "$WORK_FILES/"
 	fi
