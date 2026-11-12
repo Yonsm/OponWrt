@@ -30,10 +30,17 @@ build_single_preset() {
 	local WORK_FILES="/tmp/openwrt-files-${PRESET}"
 	rm -rf "$WORK_FILES"
 	cp -a "$SCRIPT_DIR/files" "$WORK_FILES"
-	[[ "$PRESET" != *"+NOWING"* ]] && cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
-	([[ "$PRESET" == X64* ]] || [[ "$PRESET" == *"+SMB4"* ]]) && cp -a "$SCRIPT_DIR/extras/samba4/"* "$WORK_FILES/"
-	[[ "$PRESET" == *"+HASS"* ]] && cp -a "$SCRIPT_DIR/extras/hass/"* "$WORK_FILES/"
+	if [[ "$PRESET" != *"+NOWING"* ]]; then
+		cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
+	fi
+	if [[ "$PRESET" == X64* ]] || [[ "$PRESET" == *"+SMB4"* ]]; then
+		cp -a "$SCRIPT_DIR/extras/samba4/"* "$WORK_FILES/"
+	fi
+	if [[ "$PRESET" == *"+HASS"* ]]; then
+		cp -a "$SCRIPT_DIR/extras/hass/"* "$WORK_FILES/"
+	fi
 	find "$WORK_FILES" -name ".DS_Store" -delete
+
 	python3 - "$OPENWRT_VER" "$OPENWRT_SERIES" "$TARGET_BOARD" "$TARGET_SUBTARGET" "$PKG_ARCH" "$WORK_IB" <<'PYEOF'
 import os, re, sys, json, subprocess, urllib.request
 
@@ -60,10 +67,11 @@ req = urllib.request.Request("https://api.github.com/repos/jerrykuku/luci-theme-
 rel = json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
 for asset in rel.get("assets", []):
     url = asset.get("browser_download_url", "")
-    if url.endswith(f".{pkg_ext}"):
-        dst = os.path.join(pkg_dir, os.path.basename(url))
+    name = os.path.basename(url)
+    if url.endswith(f".{pkg_ext}") and (name.startswith("luci-theme-argon") or name.startswith("luci-app-argon-config") or name.startswith("luci-i18n-argon-config-zh-cn")):
+        dst = os.path.join(pkg_dir, name)
         if not os.path.exists(dst):
-            print(f"[build] Argon: {os.path.basename(url)}")
+            print(f"[build] Argon: {name}")
             urllib.request.urlretrieve(url, dst)
 
 third_party = [
@@ -87,17 +95,42 @@ for cand_series in (series, "24.10"):
     break
 PYEOF
 
-	# 跳过第三方本地包的签名强校验
-	[ -f "$WORK_IB/repositories.conf" ] && sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
-	[ -f "$WORK_IB/Makefile" ] && sed -i 's/apk add /apk add --allow-untrusted /g' "$WORK_IB/Makefile" || true
+	# 跳过第三方本地包的签名强校验（同时适配 opkg 与 25.12 apk）
+	if [ -f "$WORK_IB/repositories.conf" ]; then
+		sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
+	fi
+	if [ -f "$WORK_IB/Makefile" ]; then
+		sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$WORK_IB/Makefile"
+	fi
 
 	export PATH="$WORK_IB/staging_dir/host/bin:$PATH"
 	"$SCRIPT_DIR/patches/ui-replace.sh" "$SCRIPT_DIR/patches/custom-ui.po" "$WORK_FILES" "$WORK_IB"
 
-	[ "$TARGET_BOARD" = "x86" ] && (sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config")
-	[ -n "$ROOTFS_PARTSIZE" ] && sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${ROOTFS_PARTSIZE}/" "$WORK_IB/.config"
+	if [ "$TARGET_BOARD" = "x86" ]; then
+		sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config"
+	fi
+	if [ -n "$ROOTFS_PARTSIZE" ]; then
+		sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${ROOTFS_PARTSIZE}/" "$WORK_IB/.config"
+	fi
 
-	make -C "$WORK_IB" image PROFILE="$TARGET_PROFILE" PACKAGES="$FINAL_PACKAGES" FILES="$WORK_FILES"
+	# 过滤掉源里确实没有的第三方旧包（如 25.12 移除的 shadowsocksr-libev-ssr-redir），避免中断构建
+	local VALID_PKGS=""
+	for pkg in $FINAL_PACKAGES; do
+		case "$pkg" in
+		shadowsocksr-libev-ssr-redir|trojan|ipt2socks|dns2tcp|tcping|chinadns-ng)
+			if ls "$WORK_IB/packages/${pkg}"* >/dev/null 2>&1; then
+				VALID_PKGS="$VALID_PKGS $pkg"
+			else
+				echo "[build] Skip unavailable third-party package: $pkg"
+			fi
+			;;
+		*)
+			VALID_PKGS="$VALID_PKGS $pkg"
+			;;
+		esac
+	done
+
+	make -C "$WORK_IB" image PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES"
 
 	mkdir -p "$SCRIPT_DIR/output"
 	cp -av "$WORK_IB/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"/* "$SCRIPT_DIR/output/"

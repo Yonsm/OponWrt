@@ -179,18 +179,38 @@ PYEOF
 apply_static() {
 	local R="$1"
 	[ -d "$R" ] || return 0
-	[ -f "$R/www/index.html" ] && sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$R/www/index.html" && rm -f "$R/www/index.html.bak"
-	[ -f "$R/usr/share/ucode/luci/version.uc" ] && sed -i.bak -e "s/luciname\s*=\s*\"[^\"]*\"/luciname = \"Yonsm\"/" -e "s/luciversion\s*=\s*\"[^\"]*\"/luciversion = \"$(date +%Y-%m-%d)\"/" "$R/usr/share/ucode/luci/version.uc" && rm -f "$R/usr/share/ucode/luci/version.uc.bak"
+	if [ -f "$R/www/index.html" ]; then
+		sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$R/www/index.html" && rm -f "$R/www/index.html.bak"
+	fi
+	if [ -f "$R/usr/share/ucode/luci/version.uc" ]; then
+		sed -i.bak -e "s/luciname\s*=\s*\"[^\"]*\"/luciname = \"Yonsm\"/" -e "s/luciversion\s*=\s*\"[^\"]*\"/luciversion = \"$(date +%Y-%m-%d)\"/" "$R/usr/share/ucode/luci/version.uc" && rm -f "$R/usr/share/ucode/luci/version.uc.bak"
+	fi
 	local M="$R/usr/share/luci/menu.d"
-	[ -f "$M/luci-app-ddns.json" ] && sed -i.bak 's/59/20/g' "$M/luci-app-ddns.json" && rm -f "$M/luci-app-ddns.json.bak"
-	[ -f "$M/luci-app-xfrpc.json" ] && sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
-	[ -f "$M/luci-app-upnp.json" ] && sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
-	[ -f "$M/luci-app-uhttpd.json" ] && sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
-	[ -f "$M/luci-app-wifischedule.json" ] && sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"
+	if [ -f "$M/luci-app-ddns.json" ]; then
+		sed -i.bak 's/59/20/g' "$M/luci-app-ddns.json" && rm -f "$M/luci-app-ddns.json.bak"
+	fi
+	if [ -f "$M/luci-app-xfrpc.json" ]; then
+		sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
+	fi
+	if [ -f "$M/luci-app-upnp.json" ]; then
+		sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
+	fi
+	if [ -f "$M/luci-app-uhttpd.json" ]; then
+		sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
+	fi
+	if [ -f "$M/luci-app-wifischedule.json" ]; then
+		sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"
+	fi
 	for F in "$R/usr/share/ucode/luci/template/themes/argon/footer.ut" "$R/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
-		[ -f "$F" ] && sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$F" && rm -f "$F.bak"
+		if [ -f "$F" ]; then
+			sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$F" && rm -f "$F.bak"
+		fi
 	done
+	return 0
 }
 
 apply_static "$FILES_DIR"
-[ -n "$IB_DIR" ] && [ -d "$IB_DIR" ] && apply_static "$IB_DIR"
+if [ -n "$IB_DIR" ] && [ -d "$IB_DIR" ]; then
+	apply_static "$IB_DIR"
+fi
+exit 0
