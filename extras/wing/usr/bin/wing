@@ -83,14 +83,26 @@ dns() {
 		dns-forwarder -p 5354 &
 	fi
 
-	if [ -z "$LINE" ] && [ "${_GFW_LIST##*.}" = txt ]; then
-		local GFW_CONF="${_GFW_LIST%.txt}.conf"
-		if [ ! -f "$GFW_CONF" -o "$_GFW_LIST" -nt "$GFW_CONF" ]; then
-			(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST" &&
-			 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' "$_GFW_LIST") > "$GFW_CONF"
+	if [ -z "$LINE" ]; then
+		if [ "${_GFW_LIST##*.}" = txt ]; then
+			local GFW_CONF="${_GFW_LIST%.txt}.conf"
+			if [ ! -f "$GFW_CONF" -o "$_GFW_LIST" -nt "$GFW_CONF" ]; then
+				if [ "$_NFT" = 1 ]; then
+					(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST" &&
+					 sed -e 's_^_nftset=/_' -e 's_$_/4#inet#wing#gfwlist_' "$_GFW_LIST") > "$GFW_CONF"
+				else
+					(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST" &&
+					 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' "$_GFW_LIST") > "$GFW_CONF"
+				fi
+			fi
+			_GFW_LIST="$GFW_CONF"
+			[ "$_OS" = OPENWRT ] && ! grep -Fq "$_GFW_LIST" /etc/init.d/dnsmasq && sed -i "s#procd_add_jail_mount /etc/passwd#procd_add_jail_mount $_GFW_LIST /etc/passwd#" /etc/init.d/dnsmasq
 		fi
-		_GFW_LIST="$GFW_CONF"
-		[ "$_OS" = OPENWRT ] && ! grep -Fq "$_GFW_LIST" /etc/init.d/dnsmasq && sed -i "s#procd_add_jail_mount /etc/passwd#procd_add_jail_mount $_GFW_LIST /etc/passwd#" /etc/init.d/dnsmasq
+		if [ "$_NFT" = 1 ] && grep -q '^ipset=/' "$_GFW_LIST" 2>/dev/null; then
+			sed -i 's#^ipset=/\(.*\)/gfwlist$#nftset=/\1/4#inet#wing#gfwlist#' "$_GFW_LIST"
+		elif [ "$_NFT" != 1 ] && grep -q '^nftset=/' "$_GFW_LIST" 2>/dev/null; then
+			sed -i 's#^nftset=/\(.*\)/4#inet#wing#gfwlist$#ipset=/\1/gfwlist#' "$_GFW_LIST"
+		fi
 	fi
 
 	echo "${LINE:-conf-file=$_GFW_LIST}" >> "$CONF"
@@ -120,8 +132,13 @@ update() {
 		SAVE=install_pac
 	fi
 	if [ $_FMT = conf ]; then
-		(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP &&
-		 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' $_GFW_TMP) > $TARGET
+		if [ "$_NFT" = 1 ]; then
+			(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP &&
+			 sed -e 's_^_nftset=/_' -e 's_$_/4#inet#wing#gfwlist_' $_GFW_TMP) > $TARGET
+		else
+			(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP &&
+			 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' $_GFW_TMP) > $TARGET
+		fi
 	elif [ $_FMT = pac ]; then
 		[ -z "$2" ] && _IP=127.0.0.1 || _IP=$2
 		local PAC_PORT=${3:-1080}
@@ -244,12 +261,36 @@ prepare() {
 
 inject() {
 	if [ $_MODE = ROUTER ]; then
-		$_FW -t nat $1 OUTPUT -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
-		$_FW -t nat $1 PREROUTING -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
-		local ACTION=$1
-		[ $ACTION = -A ] && ACTION=-I
-		$_FW $ACTION OUTPUT -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
-		$_FW $ACTION FORWARD -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
+		if [ "$_NFT" = 1 ]; then
+			case $1 in
+			-A)
+				nft add chain inet wing prerouting '{ type nat hook prerouting priority dstnat - 1; policy accept; }'
+				nft add chain inet wing output '{ type nat hook output priority -100; policy accept; }'
+				nft add rule inet wing prerouting ip daddr @gfwlist meta l4proto tcp redirect to :1088
+				nft add rule inet wing output ip daddr @gfwlist meta l4proto tcp redirect to :1088
+				nft add chain inet wing forward '{ type filter hook forward priority filter - 1; policy accept; }'
+				nft add chain inet wing filter_out '{ type filter hook output priority filter - 1; policy accept; }'
+				nft add rule inet wing forward ip daddr @gfwlist udp dport 443 counter reject
+				nft add rule inet wing filter_out ip daddr @gfwlist udp dport 443 counter reject
+				;;
+			-D)
+				for C in prerouting output forward filter_out; do
+					nft flush chain inet wing $C 2>/dev/null
+				done
+				;;
+			-C)
+				nft list chain inet wing prerouting 2>/dev/null | grep -q 1088
+				return $?
+				;;
+			esac
+		else
+			$_FW -t nat $1 OUTPUT -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
+			$_FW -t nat $1 PREROUTING -p tcp -m set --match-set gfwlist dst -j REDIRECT --to-port 1088
+			local ACTION=$1
+			[ $ACTION = -A ] && ACTION=-I
+			$_FW $ACTION OUTPUT -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
+			$_FW $ACTION FORWARD -p udp --dport 443 -m set --match-set gfwlist dst -j REJECT --reject-with icmp-port-unreachable
+		fi
 	elif [ $_OS = MACOS ]; then
 		if [ -z "$WING_NETWORK" ]; then
 			local SDEV=`route -n get default 2> /dev/null | awk '/interface:/ {print $2; exit}'`
@@ -312,13 +353,19 @@ proxy() {
 			;;
 		esac
 
-		# ipset for DNS & Telegram
-		ipset create gfwlist iphash
-		ipset add gfwlist 8.8.8.8
-		ipset add gfwlist 91.108.56.110
-		ipset add gfwlist 140.82.114.26
-		ipset add gfwlist 149.154.165.96
-		ipset add gfwlist 149.154.167.151
+		# ipset/nftset for DNS & Telegram
+		if [ "$_NFT" = 1 ]; then
+			nft add table inet wing
+			nft add set inet wing gfwlist '{ type ipv4_addr; flags interval; }'
+			nft add element inet wing gfwlist '{ 8.8.8.8, 91.108.56.110, 140.82.114.26, 149.154.165.96, 149.154.167.151 }'
+		else
+			ipset create gfwlist iphash
+			ipset add gfwlist 8.8.8.8
+			ipset add gfwlist 91.108.56.110
+			ipset add gfwlist 140.82.114.26
+			ipset add gfwlist 149.154.165.96
+			ipset add gfwlist 149.154.167.151
+		fi
 		#ipset add gfwlist 91.108.56.0/22
 		#ipset add gfwlist 91.108.4.0/22
 		#ipset add gfwlist 109.239.140.0/24
@@ -456,8 +503,12 @@ stop() {
 	rm /tmp/trojan.conf /tmp/ssr.conf /tmp/wing.log /tmp/ipt2socks.log 2> /dev/null
 
 	if [ $_MODE = ROUTER ]; then
-		ipset flush gfwlist
-		ipset destroy gfwlist
+		if [ "$_NFT" = 1 ]; then
+			nft delete table inet wing 2>/dev/null
+		else
+			ipset flush gfwlist
+			ipset destroy gfwlist
+		fi
 		[ "$1" == "-R" ] && sleep 1 && return
 
 		dns off
@@ -470,16 +521,20 @@ stop() {
 status() {
 	case $1 in
 	2) tail -f /tmp/ipt2socks.log;;
-	t) $_FW -t nat -L PREROUTING && $_FW -t nat -L OUTPUT;;
-	s) ipset -L gfwlist;;
+	t) [ "$_NFT" = 1 ] && nft list table inet wing || { $_FW -t nat -L PREROUTING && $_FW -t nat -L OUTPUT; };;
+	s) [ "$_NFT" = 1 ] && nft list set inet wing gfwlist || ipset -L gfwlist;;
 	y) tail -f /tmp/syslog.log;;
 	*) tail -f /tmp/wing.log;;
 	esac
 }
 
 if [ $_MODE = ROUTER ]; then
-	type iptables-nft >/dev/null 2>&1 && _FW=iptables-nft || _FW=iptables
-	type $_FW >/dev/null 2>&1 || { echo "$_FW is required" >&2; exit 1; }
+	if [ "$WING_CHINADNS" != 1 ] && type nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -Eq '(^| )nftset( |$)' && dnsmasq --version 2>/dev/null | grep -q 'no-ipset'; then
+		_NFT=1
+	else
+		type iptables-nft >/dev/null 2>&1 && _FW=iptables-nft || _FW=iptables
+		type $_FW >/dev/null 2>&1 || { echo "$_FW is required" >&2; exit 1; }
+	fi
 fi
 
 case $1 in
@@ -498,7 +553,11 @@ pause)
 	;;
 resume)
 	if [ $_MODE = ROUTER ]; then
-		ipset test gfwlist 8.8.8.8 || exit 3
+		if [ "$_NFT" = 1 ]; then
+			nft list set inet wing gfwlist >/dev/null 2>&1 || exit 3
+		else
+			ipset test gfwlist 8.8.8.8 || exit 3
+		fi
 	fi
 	inject -C || inject -A
 	;;
