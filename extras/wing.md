@@ -28,9 +28,9 @@ wing stop
 
 ## 路由器 DNS
 
-OpenWrt / MIWIFI 需要 dnsmasq、ipset、支持 set/REDIRECT/REJECT 的 IPv4 iptables 兼容模块及代理内核。Wing 优先使用 `iptables-nft`，没有时使用 `iptables`；两者都仍需 ipset 及 set 匹配模块，不支持仅安装原生 nft 的环境。DNS 转发程序优先选择 `chinadns-ng`，否则使用 `dns2tcp`，最后使用 `dns-forwarder`。脚本不安装依赖。MIWIFI 还须确认 dnsmasq 加载 `/tmp/dnsmasq.d`，Wing 将配置写入其中的 `wing.conf`；OpenWrt 修改 `/etc/dnsmasq.conf` 中的 Wing 配置块。
+OpenWrt / MIWIFI 需要 dnsmasq、ipset、支持 set/REDIRECT/REJECT 的 IPv4 iptables 兼容模块及代理内核。Wing 优先使用 `iptables-nft`，没有时使用 `iptables`；两者都仍需 ipset 及 set 匹配模块，不支持仅安装原生 nft 的环境。DNS 转发程序优先选择 `chinadns-ng`，否则使用 `dns2tcp`，最后使用 `dns-forwarder`。脚本不安装依赖。MIWIFI 还须确认 dnsmasq 加载 `/tmp/dnsmasq.d`，Wing 在其中写入单行 `wing.conf`；OpenWrt 则在 `/etc/dnsmasq.conf` 中写入单行配置（`conf-file=...` 或 `server=/#/127.0.0.1#5354`）。
 
-默认优先使用已有的 `gfwlist.conf`；用 `WING_GFW_LIST` 可显式选用 TXT 或 CONF。设置在 `restart`、`update`、`stop` 时应保持一致：
+默认优先使用已有的 `gfwlist.conf`（仅存在 `gfwlist.txt` 时自动在同目录生成 `gfwlist.conf` 并复用）；设置 `WING_CHINADNS=1` 或 `WING_GFW_LIST` 可切换策略或名单路径。设置在 `restart`、`update`、`stop` 时应保持一致：
 
 ```sh
 export WING_GFW_LIST=/etc/gfwlist.txt   # MIWIFI 使用 /data/wing/gfwlist.txt
@@ -39,12 +39,11 @@ wing restart
 
 | 名单与转发程序 | 处理方式 |
 | --- | --- |
-| TXT + chinadns-ng | 默认：普通外部查询也转到 5354，由 chinadns-ng 按名单分流、写入 ipset；仅过滤命中域名的 AAAA |
-| TXT + chinadns-ng + `WING_DNSMASQ=1` | dnsmasq 按名单逐域转发；普通域名沿用原 DNS，名单查询过滤 AAAA；新版额外过滤 HTTPS/SVCB |
-| CONF + chinadns-ng | dnsmasq 按 CONF 逐域转发并写入 ipset；普通域名沿用原 DNS，名单查询过滤 AAAA；新版额外过滤 HTTPS/SVCB |
-| TXT/CONF + dns2tcp 或 dns-forwarder | dnsmasq 逐域转发并写入 ipset；不按名单过滤 IPv6 |
+| 默认（自动生成/复用 CONF）+ chinadns-ng | dnsmasq 按 CONF 逐域转发并写入 ipset；普通域名沿用原 DNS，名单查询过滤 AAAA；新版额外过滤 HTTPS/SVCB |
+| TXT + chinadns-ng + `WING_CHINADNS=1` | 普通外部查询也转到 5354，由 chinadns-ng 按名单分流、写入 ipset；仅过滤命中域名的 AAAA |
+| 默认 / CONF + dns2tcp 或 dns-forwarder | dnsmasq 逐域转发并写入 ipset；不按名单过滤 IPv6 |
 
-TXT 默认模式中，普通域名使用 `WING_DNS`（默认 `223.5.5.5`），名单域名使用 `tcp://8.8.8.8`；不要把 `WING_DNS` 指向路由器本机 DNS，以免循环。希望普通域名沿用原 DNS 时，设置 `WING_DNSMASQ=1` 并重启；无需额外生成 CONF。已有的 dnsmasq 本地记录及更具体的上游规则可能优先命中，脚本不会改动它们。
+默认模式由 dnsmasq 按 `gfwlist.conf` 逐域转发，普通域名沿用原 DNS；若同目录仅有 `gfwlist.txt`（或 `.txt` 更新），首次启动会自动生成 `gfwlist.conf` 供后续复用。需要由 `chinadns-ng` 全量分流时，设置 `WING_CHINADNS=1` 并重启（普通域名使用 `WING_DNS`，默认 `223.5.5.5`，名单域名使用 `tcp://8.8.8.8`；勿将 `WING_DNS` 指向路由器本机 DNS，以免循环）。已有的 dnsmasq 本地记录及更具体的上游规则可能优先命中，脚本不会改动它们。
 
 若使用 CONF，可通过 `wing update /etc/gfwlist.conf` 生成（MIWIFI 改为 `/data/wing/gfwlist.conf`）；它包含逐域的 `server` 和 `ipset` 规则。生成到**其他路径**不会切换当前模式，设置 `WING_GFW_LIST` 并 `restart` 后才会使用。
 
@@ -53,8 +52,8 @@ chinadns-ng 的程序版本要求（不是固件版本）：
 | 用途 | 版本 | 行为 |
 | --- | --- | --- |
 | 推荐，全功能 | `2025.08.09` | 完整名单匹配及 HTTPS/SVCB 记录过滤 |
-| TXT 默认模式最低 | `2024.03.07` | 使用旧式 `-N g`；五级及以上规则会截短，匹配范围可能扩大 |
-| CONF / TXT + `WING_DNSMASQ=1` 最低 | `2024.03.07` | 支持 TCP 上游及 AAAA 过滤 |
+| `WING_CHINADNS=1` 模式最低 | `2024.03.07` | 使用旧式 `-N g`；五级及以上规则会截短，匹配范围可能扩大 |
+| 默认 / CONF 模式最低 | `2024.03.07` | 支持 TCP 上游及 AAAA 过滤 |
 
 Wing 先启动完整命令；参数错误退出时尝试旧版命令，正常停止不会触发回退。两次都失败也不会中断 Wing 启动，此时 5354 可能无人监听。`2024.04.13` 起支持 `--filter-qtype 64,65`，它过滤的是 DNS 的 SVCB/HTTPS 记录，**不是阻断 HTTPS 连接**；回退后仍过滤名单域名的 AAAA，但不能阻止 HTTPS/SVCB 记录携带 IPv6 地址提示。早于 `2024.03.07` 的版本不支持所需的 `tcp://` 上游写法。
 
@@ -67,7 +66,7 @@ Wing 先启动完整命令；参数错误退出时尝试旧版命令，正常停
 
 `23.05.4` 软件源的 ARM64 包为 [2025.08.09-1](https://mirrors.pku.edu.cn/immortalwrt/releases/23.05.4/packages/aarch64_generic/packages/chinadns-ng_2025.08.09-1_aarch64_generic.ipk)。推荐版是镜像软件包，CONF 最低版是官方独立程序，不能当作 IPK 安装；应核对固件和架构，旧源的 `2023.06.01` 不支持当前 TCP 上游参数。
 
-Wing 不清理旧版留下的 dnsmasq 全局 `filter-AAAA`、`filter-rr` 和名单引用；若仍有 `filter-AAAA`，**普通域名的 IPv6 也会被过滤**，与 `WING_DNSMASQ=1` 无关。透明代理只处理 IPv4 TCP，并拒绝命中 ipset 的 UDP/443 以促使支持回退的应用使用 TCP；客户端须使用路由器 DNS，DoH、缓存、IPv6 地址提示或硬编码地址仍可能绕过分流。TXT 默认模式只过滤名单域名的 AAAA；需要同时过滤 HTTPS/SVCB 地址提示时，须切换至 CONF 或 `WING_DNSMASQ=1` 并使用支持 `--filter-qtype` 的版本。按 IP 分流也可能影响共用该 IP 的其他域名。
+Wing 不清理旧版留下的 dnsmasq 全局 `filter-AAAA`、`filter-rr` 和名单引用；若仍有 `filter-AAAA`，**普通域名的 IPv6 也会被过滤**，与是否设置 `WING_CHINADNS=1` 无关。透明代理只处理 IPv4 TCP，并拒绝命中 ipset 的 UDP/443 以促使支持回退的应用使用 TCP；客户端须使用路由器 DNS，DoH、缓存、IPv6 地址提示或硬编码地址仍可能绕过分流。`WING_CHINADNS=1` 模式只过滤名单域名的 AAAA；默认 / CONF 模式配合支持 `--filter-qtype` 的版本可同时过滤 HTTPS/SVCB 地址提示。按 IP 分流也可能影响共用该 IP 的其他域名。
 
 `pause` 只撤销流量规则，DNS 继续运行；`restart` 重载 DNS；`stop` 移除 Wing DNS 配置并停止所选转发程序。此管理方式不适合与其他服务共用同名 DNS 进程。
 

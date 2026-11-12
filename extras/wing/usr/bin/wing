@@ -30,7 +30,11 @@ else
 fi
 
 if [ $_MODE = ROUTER ]; then
-	[ -f $_GFW_LIST/gfwlist.conf ] && _GFW_LIST=$_GFW_LIST/gfwlist.conf || _GFW_LIST=$_GFW_LIST/gfwlist.txt
+	if [ "$WING_CHINADNS" = 1 -o ! -f "$_GFW_LIST/gfwlist.conf" ]; then
+		_GFW_LIST=$_GFW_LIST/gfwlist.txt
+	else
+		_GFW_LIST=$_GFW_LIST/gfwlist.conf
+	fi
 	_GFW_LIST=${WING_GFW_LIST:-$_GFW_LIST}
 fi
 
@@ -60,12 +64,12 @@ dns() {
 		CONF=$CONF/wing.conf
 		rm -f "$CONF"
 	elif [ -f "$CONF" ]; then
-		sed -i '/^# Wing DNS begin$/,/^# Wing DNS end$/d' "$CONF"
+		sed -i -e '/^server=\/#\/127\.0\.0\.1#5354$/d' -e '/^conf-file=.*gfwlist/d' "$CONF"
 	fi
 	[ "$1" = off ] && return
 
 	if type chinadns-ng >/dev/null 2>&1; then
-		if [ "${_GFW_LIST##*.}" = txt -a "$WING_DNSMASQ" != 1 ]; then
+		if [ "${_GFW_LIST##*.}" = txt -a "$WING_CHINADNS" = 1 ]; then
 			(chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N tag:gfw -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8 ||
 			 { [ $? = 1 ] && chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N g -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8; }) &
 			LINE="server=/#/127.0.0.1#5354"
@@ -79,18 +83,17 @@ dns() {
 		dns-forwarder -p 5354 &
 	fi
 
-	{
-		echo '# Wing DNS begin'
-		if [ -n "$LINE" ]; then
-			echo "$LINE"
-		elif [ "${_GFW_LIST##*.}" = txt ]; then
-			sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST"
-			sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' "$_GFW_LIST"
-		else
-			echo "conf-file=$_GFW_LIST"
+	if [ -z "$LINE" ] && [ "${_GFW_LIST##*.}" = txt ]; then
+		local GFW_CONF="${_GFW_LIST%.txt}.conf"
+		if [ ! -f "$GFW_CONF" -o "$_GFW_LIST" -nt "$GFW_CONF" ]; then
+			(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' "$_GFW_LIST" &&
+			 sed -e 's_^_ipset=/_' -e 's_$_/gfwlist_' "$_GFW_LIST") > "$GFW_CONF"
 		fi
-		echo '# Wing DNS end'
-	} >> "$CONF"
+		_GFW_LIST="$GFW_CONF"
+		[ "$_OS" = OPENWRT ] && ! grep -Fq "$_GFW_LIST" /etc/init.d/dnsmasq && sed -i "s#procd_add_jail_mount /etc/passwd#procd_add_jail_mount $_GFW_LIST /etc/passwd#" /etc/init.d/dnsmasq
+	fi
+
+	echo "${LINE:-conf-file=$_GFW_LIST}" >> "$CONF"
 	/etc/init.d/dnsmasq restart
 }
 
@@ -136,7 +139,7 @@ update() {
 	if [ $_MODE = ROUTER -a "$_GFW_LIST" = "$ACTIVE_LIST" ]; then
 		local CONF=$_DNSMASQ_CONF
 		[ -d "$CONF" ] && CONF=$CONF/wing.conf
-		grep -Fxq '# Wing DNS begin' "$CONF" 2>/dev/null && dns on
+		grep -Eq '^(server=/#/127\.0\.0\.1#5354|conf-file=.*gfwlist)' "$CONF" 2>/dev/null && dns on
 	fi
 	return 0
 }
