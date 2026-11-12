@@ -1,15 +1,8 @@
-# ==============================================================================
-# OpenWrt LuCI 界面自定义中文词条翻译表 (custom-ui.po)
-# 提取自原 4-fix 脚本中对 feeds/luci 及第三方插件的全部中文 PO 修改规则
-# 编译目标: files/usr/lib/lua/luci/i18n/zzz-custom.zh-cn.lmo (及各模块 .zh-cn.lmo)
-# ==============================================================================
-
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: zh_Hans\n"
 
-# --- luci-base (base.po) ---
 msgid "<abbr title=\"Light Emitting Diode\">LED</abbr> Configuration"
 msgstr "灯光配置"
 
@@ -40,7 +33,6 @@ msgstr "主机域名"
 msgid "Firewall"
 msgstr "防火长城"
 
-# --- luci-app-ddns (ddns.po) ---
 msgid "Dynamic DNS"
 msgstr "动态域名"
 
@@ -50,25 +42,21 @@ msgstr "动态域名版本"
 msgid "Dynamic DNS allows that your router can be reached with a fixed hostname while having a dynamically changing IP address."
 msgstr "动态域名允许您的路由器在具有动态变化的 IP 地址时使用固定主机名访问。"
 
-# --- luci-app-aria2 (aria2.po) ---
 msgid "Aria2"
 msgstr "下载工具"
 
-# --- luci-app-dockerman (dockerman.po) ---
 msgid "Docker"
 msgstr "容器"
 
 msgid "DockerMan"
 msgstr "容器"
 
-# --- luci-app-frps / luci-app-frpc (frps.po / frpc.po) ---
 msgid "frp Server"
 msgstr "公网穿透"
 
 msgid "frp Client"
 msgstr "内网穿透"
 
-# --- luci-app-upnp (upnp.po) ---
 msgid "UPnP IGD & PCP"
 msgstr "端口映射"
 
@@ -78,26 +66,21 @@ msgstr "端口映射"
 msgid "UPnP"
 msgstr "端口映射"
 
-# --- luci-app-commands (commands.po) ---
 msgid "Custom Commands"
 msgstr "自定命令"
 
 msgid "Configure custom shell commands"
 msgstr "配置自定 shell 命令"
 
-# --- luci-app-uhttpd (uhttpd.po) ---
 msgid "uHTTPd"
 msgstr "网页服务"
 
-# --- luci-app-transmission (transmission.po) ---
 msgid "Transmission"
 msgstr "比特传输"
 
-# --- luci-app-wifischedule (wifischedule.po) ---
 msgid "WiFi Schedule"
 msgstr "无线计划"
 
-# --- luci-app-samba4 (samba4.po) ---
 msgid "Allow guests"
 msgstr "访客"
 
@@ -143,7 +126,6 @@ msgstr "虚拟对象"
 msgid "VFS objects"
 msgstr "虚拟对象"
 
-# --- luci-app-ssr-plus (ssr-plus.po) ---
 msgid "ShadowSocksR Plus+ Settings"
 msgstr "科学上网设置"
 
@@ -153,7 +135,6 @@ msgstr "科学上网"
 msgid "shadowsocks-rust Version"
 msgstr "Shadowsocks"
 
-# --- luci-app-aliyundrive-webdav (aliyundrive-webdav.po) ---
 msgid "AliyunDrive WebDAV"
 msgstr "阿里云盘"
 

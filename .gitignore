@@ -1,9 +1,3 @@
-openwrt
-lede
-*.sparseimage
-Router
-Releases
-packit
 output/
 bin/
 .DS_Store

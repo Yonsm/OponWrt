@@ -41,6 +41,6 @@ enable core files = no
 delete veto files = yes
 veto files = /Thumbs.db/.DS_Store/._*/.apdisk/lost+found
 mdns name = mdns
-vfs objects = fruit
+vfs objects = catia fruit streams_xattr
 fruit:model = Xserve
 fruit:copyfile = yes
