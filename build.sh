@@ -4,7 +4,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-PRESET_ARG="${1:-X64+DOCKER+WIFI}"
+PRESET_ARG="${1:-ALL}"
 OPENWRT_VER="${2:-$OPENWRT_VERSION}"
 
 if [ -z "$OPENWRT_VER" ]; then

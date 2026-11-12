@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       preset:
-        description: "设备预设 (如 X64+DOCKER+WIFI, CM520, K2P, C5, NEWIFI3, Y1, RMAX6000, ALL)"
+        description: "设备预设 (如 K2P, X64+DOCKER+WIFI, CM520, C5, NEWIFI3, Y1, RMAX6000, ALL，支持逗号分隔)"
         required: true
-        default: "X64+DOCKER+WIFI"
+        default: "ALL"
       openwrt_version:
         description: "OpenWrt 版本号 (留空则自动追踪最新正式 Release 版)"
         required: false
@@ -16,7 +16,27 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        env:
+          PRESET: ${{ inputs.preset }}
+        run: |
+          if [ "$PRESET" = "ALL" ]; then
+            echo 'matrix=["X64+DOCKER+WIFI","CM520","K2P","C5","NEWIFI3","Y1","RMAX6000"]' >> "$GITHUB_OUTPUT"
+          else
+            python3 -c 'import json, os; items=[x.strip() for x in os.environ["PRESET"].split(",") if x.strip()]; print("matrix=" + json.dumps(items))' >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,10 +48,10 @@ jobs:
           sudo apt-get install -y -qq build-essential bzip2 gawk gettext libncurses5-dev libssl-dev patch perl python3 python3-setuptools rsync unzip zlib1g-dev file wget zstd xz-utils
 
       - name: Build Image via ImageBuilder
-        run: ./build.sh "${{ inputs.preset }}" "${{ inputs.openwrt_version }}"
+        run: ./build.sh "${{ matrix.preset }}" "${{ inputs.openwrt_version }}"
 
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt-Firmware-${{ inputs.preset }}
+          name: OpenWrt-Firmware-${{ matrix.preset }}
           path: output/*
