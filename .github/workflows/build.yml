@@ -26,7 +26,7 @@ jobs:
           PRESET: ${{ inputs.preset }}
         run: |
           if [ "$PRESET" = "ALL" ]; then
-            echo 'matrix=["X64+DOCKER+WIFI","CM520","K2P","C5","NEWIFI3","Y1","RMAX6000"]' >> "$GITHUB_OUTPUT"
+            echo 'matrix=["X64+DOCKER+WIFI","CM520", "CM520+OPBOOT","K2P","C5","NEWIFI3","Y1","RMAX6000"]' >> "$GITHUB_OUTPUT"
           else
             python3 -c 'import json, os; items=[x.strip() for x in os.environ["PRESET"].split(",") if x.strip()]; print("matrix=" + json.dumps(items))' >> "$GITHUB_OUTPUT"
           fi

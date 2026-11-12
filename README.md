@@ -29,9 +29,12 @@
 
 ## 随身 WiFi (MSM8916) 部署
 
-OpenWrt 官方暂未收录高通 MSM8916 随身 WiFi，但可使用社区 [msm8916-openwrt](https://github.com/hkfuertes/msm8916-openwrt/releases)（`v1.0.14`，OpenWrt 25.12.5）刷底包后，通过 [`extras/msm8916.sh`](extras/msm8916.sh) 一键注入 `wing`、`dnsmasq-full`、Argon 主题与中文词条定制：
+OpenWrt 官方暂未收录高通 MSM8916 随身 WiFi，可先刷入以下社区底包之一，再通过 [`extras/msm8916.sh`](extras/msm8916.sh) 一键注入 `wing`、`dnsmasq-full`、Argon 主题与中文词条定制：
 
-* **支持型号**：采用高通 **MSM8916（骁龙 410）** 的新讯等随身 WiFi，具体为社区已适配的 **`UZ801 v3`** 与 **`Generic UF02`**（早期部分 `UFI001B` / `UFI001C` / `UFI003` 需自核对板型；非高通芯片如 ASR1803、展锐、中兴微不支持）。
+* **活跃推荐源**：[akbar-npj/msm8916-openwrt](https://github.com/akbar-npj/msm8916-openwrt)（基于 OpenWrt **25.12.6**，支持 AP+STA 中继/WISP 与热插拔换卡），已适配 **`UZ801`**、**`UF02`**、**`UFI003`**、**`UFI001B`**、**`HMUF02-V5`**、**`MF800B`**、**`JZ02`** 等板型。
+* **归档备用源**：[hkfuertes/msm8916-openwrt](https://github.com/hkfuertes/msm8916-openwrt/releases)（`v1.0.14`，OpenWrt 25.12.5，已归档只读），适配 **`UZ801 v3`** 与 **`Generic UF02`**。
+* **兼容性说明**：仅支持高通 **MSM8916（骁龙 410）** 方案，非高通芯片（如 ASR1803、展锐、中兴微等）不支持。
+
 * **使用方式**：先用 `edl` 备份原厂分区并刷入社区底包，连网后在本地执行：
 
 ```bash
