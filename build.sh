@@ -76,7 +76,7 @@ for asset in rel.get("assets", []):
 
 third_party = [
     "chinadns-ng", "shadowsocks-libev-ss-redir", "simple-obfs-client",
-    "shadowsocksr-libev-ssr-redir", "trojan", "ipt2socks", "dns2tcp", "tcping",
+    "shadowsocksr-libev-ssr-redir", "trojan", "ipt2socks", "tcping",
 ]
 for cand_series in (series, "24.10"):
     im_base = f"https://downloads.immortalwrt.org/releases/packages-{cand_series}/{pkg_arch}/packages"
@@ -117,7 +117,7 @@ PYEOF
 	local VALID_PKGS=""
 	for pkg in $FINAL_PACKAGES; do
 		case "$pkg" in
-		shadowsocksr-libev-ssr-redir|trojan|ipt2socks|dns2tcp|tcping|chinadns-ng)
+		shadowsocksr-libev-ssr-redir|trojan|ipt2socks|tcping|chinadns-ng)
 			if ls "$WORK_IB/packages/${pkg}"* >/dev/null 2>&1; then
 				VALID_PKGS="$VALID_PKGS $pkg"
 			else
