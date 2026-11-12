@@ -95,6 +95,8 @@ for cand_series in (series, "24.10"):
     break
 PYEOF
 
+	mkdir -p "$WORK_IB/tmp"
+
 	# 跳过第三方本地包的签名强校验（同时适配 opkg 与 25.12 apk）
 	if [ -f "$WORK_IB/repositories.conf" ]; then
 		sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
@@ -103,8 +105,7 @@ PYEOF
 		sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$WORK_IB/Makefile"
 	fi
 
-	export PATH="$WORK_IB/staging_dir/host/bin:$PATH"
-	"$SCRIPT_DIR/patches/ui-replace.sh" "$SCRIPT_DIR/patches/custom-ui.po" "$WORK_FILES" "$WORK_IB"
+	PATH="$WORK_IB/staging_dir/host/bin:$PATH" "$SCRIPT_DIR/patches/ui-replace.sh" "$SCRIPT_DIR/patches/custom-ui.po" "$WORK_FILES" "$WORK_IB"
 
 	if [ "$TARGET_BOARD" = "x86" ]; then
 		sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config"
@@ -130,7 +131,7 @@ PYEOF
 		esac
 	done
 
-	make -C "$WORK_IB" image PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES"
+	make -C "$WORK_IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES"
 
 	mkdir -p "$SCRIPT_DIR/output"
 	cp -av "$WORK_IB/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"/* "$SCRIPT_DIR/output/"
