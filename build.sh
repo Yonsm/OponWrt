@@ -78,7 +78,7 @@ for asset in rel.get("assets", []):
             urllib.request.urlretrieve(url, dst)
 
 third_party = [
-    "chinadns-ng", "shadowsocks-libev-ss-redir", "simple-obfs-client",
+    "chinadns-ng", "simple-obfs-client",
     "shadowsocksr-libev-ssr-redir", "trojan", "ipt2socks", "tcping",
 ]
 for cand_series in (series, "24.10"):
@@ -121,7 +121,7 @@ PYEOF
 	local VALID_PKGS=""
 	for pkg in $FINAL_PACKAGES; do
 		case "$pkg" in
-		shadowsocks-libev-ss-redir|simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|ipt2socks|tcping|chinadns-ng)
+		simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|ipt2socks|tcping|chinadns-ng)
 			if ls "$WORK_IB/packages/${pkg}"* >/dev/null 2>&1; then
 				VALID_PKGS="$VALID_PKGS $pkg"
 			else

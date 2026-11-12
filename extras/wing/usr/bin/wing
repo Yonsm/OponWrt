@@ -415,7 +415,7 @@ start() {
 		elif [ -z $_PASS ]; then
 			split_str _USER _PASS : `decode_b64 $_USER`
 		fi
-		ssxcmd $1 ss
+		([ $_MODE != ROUTER ] || type ss-redir >/dev/null 2>&1) && ssxcmd $1 ss || ssxcmd $1 ssr "-O origin -o plain"
 		;;
 	socks5)
 		[ -z $_PORT ] && _PORT=1080
