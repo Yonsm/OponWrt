@@ -96,6 +96,23 @@ for cand_series in (series, "24.10"):
                 print(f"  -> {m.group(1)}")
                 urllib.request.urlretrieve(f"{im_base}/{m.group(1)}", dst)
     break
+
+missing = [p for p in third_party if not any(f.startswith(f"{p}-") or f.startswith(f"{p}_") for f in os.listdir(pkg_dir))]
+if missing:
+    pw_base = f"https://sourceforge.net/projects/openwrt-passwall-build/files/releases/packages-{series}/{pkg_arch}/passwall_packages"
+    try:
+        pw_html = urllib.request.urlopen(f"{pw_base}/").read().decode("utf-8", "ignore")
+        print(f"[build] Passwall: {pw_base}/")
+        for pkg in missing:
+            m = re.search(rf'({re.escape(pkg)}[_-][0-9][^"/]*\.{pkg_ext})', pw_html)
+            if m:
+                fname = m.group(1)
+                dst = os.path.join(pkg_dir, fname)
+                if not os.path.exists(dst):
+                    print(f"  -> {fname}")
+                    urllib.request.urlretrieve(f"https://downloads.sourceforge.net/project/openwrt-passwall-build/releases/packages-{series}/{pkg_arch}/passwall_packages/{fname}", dst)
+    except Exception as e:
+        print(f"[build] Passwall feed skipped: {e}")
 PYEOF
 
 	mkdir -p "$WORK_IB/tmp"
