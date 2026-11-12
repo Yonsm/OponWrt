@@ -157,37 +157,4 @@ if [ -f /etc/ksmbd/ksmbd.conf.template ] && ! grep -q "veto files" /etc/ksmbd/ks
 		-e 's/\tcache trans buffers/\t#cache trans buffers/' /etc/ksmbd/ksmbd.conf.template
 fi
 
-# 13. LuCI 菜单文案、顺序、引导页与 Argon 页脚模板定制
-M=/usr/share/luci/menu.d
-[ -f "$M/luci-mod-status.json" ] && sed -i \
-	-e 's/"title": "Routing"/"title": "路由规则"/g' \
-	-e 's/"title": "Firewall"/"title": "防火长城"/g' \
-	-e 's/"title": "Processes"/"title": "系统进程"/g' "$M/luci-mod-status.json"
-[ -f "$M/luci-mod-system.json" ] && sed -i \
-	-e 's/"title": ".*LED.*Configuration"/"title": "灯光配置"/g' \
-	-e 's/"title": "Backup \/ Flash Firmware"/"title": "备份更新"/g' \
-	-e 's/"title": "Reboot"/"title": "重新启动"/g' "$M/luci-mod-system.json"
-[ -f "$M/luci-app-commands.json" ] && sed -i 's/"title": "Custom Commands"/"title": "自定命令"/g' "$M/luci-app-commands.json"
-for F in "$M"/luci-*argon*.json; do
-	[ -f "$F" ] && sed -i 's/"title": "Argon Config"/"title": "主题设置"/g' "$F"
-done
-[ -f "$M/luci-app-ddns.json" ] && sed -i -e 's/59/20/g' -e 's/"title": "Dynamic DNS"/"title": "动态域名"/g' "$M/luci-app-ddns.json"
-[ -f "$M/luci-app-upnp.json" ] && sed -i -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' -e 's/"title": "UPnP IGD[^"]*"/"title": "端口映射"/g' "$M/luci-app-upnp.json"
-[ -f "$M/luci-mod-network.json" ] && sed -i \
-	-e 's/"title": "Routes"/"title": "路由规则"/g' \
-	-e 's/"title": "Routing"/"title": "路由规则"/g' \
-	-e 's/"title": "DHCP"/"title": "网址分配"/g' \
-	-e 's/"title": "DNS"/"title": "网络域名"/g' "$M/luci-mod-network.json"
-[ -f "$M/luci-app-firewall.json" ] && sed -i 's/"title": "Firewall"/"title": "防火长城"/g' "$M/luci-app-firewall.json"
-[ -f "$M/luci-app-xfrpc.json" ] && sed -i -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json"
-[ -f "$M/luci-app-uhttpd.json" ] && sed -i -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json"
-[ -f "$M/luci-app-wifischedule.json" ] && sed -i 's/services/network/g' "$M/luci-app-wifischedule.json"
-
-[ -f /www/index.html ] && sed -i 's/LuCI - Lua Configuration Interface/Loading.../g' /www/index.html
-[ -f /usr/share/ucode/luci/version.uc ] && sed -i 's/luciname\s*=\s*"[^"]*"/luciname = "Yonsm"/' /usr/share/ucode/luci/version.uc
-for FOOTER in /usr/share/ucode/luci/template/themes/argon/footer.ut /usr/share/ucode/luci/template/themes/argon/footer_login.ut; do
-	[ -f "$FOOTER" ] && sed -i -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$FOOTER"
-done
-rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache* 2>/dev/null
-
 exit 0

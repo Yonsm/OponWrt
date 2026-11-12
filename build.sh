@@ -121,11 +121,14 @@ PYEOF
 	if [ -f "$WORK_IB/repositories.conf" ]; then
 		sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
 	fi
+	# 在打包镜像前对 TARGET_DIR 原地执行 UI 词条、菜单与模板定制
 	if [ -f "$WORK_IB/Makefile" ]; then
 		sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$WORK_IB/Makefile"
+		if ! grep -q "ui-replace.sh" "$WORK_IB/Makefile"; then
+			grep -q "build_image" "$WORK_IB/Makefile" || { echo "[build] Error: build_image target not found in ImageBuilder Makefile" >&2; return 1; }
+			sed -i "s|\$(MAKE) build_image|$SCRIPT_DIR/patches/ui-replace.sh \$(TARGET_DIR); &|" "$WORK_IB/Makefile"
+		fi
 	fi
-
-	PATH="$WORK_IB/staging_dir/host/bin:$PATH" "$SCRIPT_DIR/patches/ui-replace.sh" "$SCRIPT_DIR/patches/custom-ui.po" "$WORK_FILES" "$WORK_IB"
 
 	if [ "$TARGET_BOARD" = "x86" ]; then
 		sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config"

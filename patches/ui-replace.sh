@@ -2,20 +2,16 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PO_FILE="${1:-$SCRIPT_DIR/custom-ui.po}"
-FILES_DIR="${2:-$REPO_ROOT/files}"
-IB_DIR="${3:-}"
+TARGET_DIR="${1:?Usage: $0 <TARGET_DIR> [PO_FILE]}"
+PO_FILE="${2:-$SCRIPT_DIR/custom-ui.po}"
 
-mkdir -p "$FILES_DIR/usr/lib/lua/luci/i18n"
-LMO_OUT="$FILES_DIR/usr/lib/lua/luci/i18n/zzz-custom.zh-cn.lmo"
-command -v po2lmo >/dev/null 2>&1 && po2lmo "$PO_FILE" "$LMO_OUT"
+[ -d "$TARGET_DIR" ] || { echo "TARGET_DIR not found: $TARGET_DIR" >&2; exit 1; }
 
-python3 - "$PO_FILE" "$FILES_DIR" "$IB_DIR" <<'PYEOF'
-import os, re, sys, glob, struct, shutil, tempfile, subprocess
+# 1. 原地修补 TARGET_DIR 中已安装的官方 *.zh-cn.lmo 翻译包
+python3 - "$PO_FILE" "$TARGET_DIR" <<'PYEOF'
+import os, re, sys, glob, struct
 
-po_file, files_dir = sys.argv[1], sys.argv[2]
-ib_dir = sys.argv[3] if len(sys.argv) > 3 else ""
+po_file, target_dir = sys.argv[1], sys.argv[2]
 
 def sfh_hash(data: bytes) -> int:
     length = len(data)
@@ -81,7 +77,6 @@ def read_lmo(path: str) -> dict:
     return entries
 
 def write_lmo(path: str, entries_by_keyid: dict):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
     body, index = bytearray(), []
     for key_id in sorted(entries_by_keyid.keys()):
         val_str = entries_by_keyid[key_id]
@@ -103,20 +98,17 @@ def write_lmo(path: str, entries_by_keyid: dict):
         f.write(body)
 
 po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(po_file).items()}
-lmo_out = os.path.join(files_dir, "usr/lib/lua/luci/i18n/zzz-custom.zh-cn.lmo")
-if not os.path.exists(lmo_out):
-    write_lmo(lmo_out, po_hash_map)
-
 EXACT = {
     "LED 配置": "灯光配置", "<abbr title=\"发光二极管\">LED</abbr> 配置": "灯光配置",
-    "路由": "路由规则", "防火墙": "防火长城", "Aria2": "下载工具", "Docker": "容器",
-    "frp 服务器": "公网穿透", "frp 客户端": "内网穿透", "UPnP IGD 和 PCP": "端口映射",
-    "UPnP IGD 和 PCP/NAT-PMP": "端口映射", "uHTTPd": "网页服务", "Transmission": "比特传输",
-    "WiFi 计划": "无线计划", "ShadowSocksR Plus+ 设置": "科学上网设置",
-    "ShadowSocksR Plus+": "科学上网", "Refresh Token": "刷新令牌",
+    "路由": "路由规则", "防火墙": "防火长城", "进程": "系统进程", "Aria2": "下载工具",
+    "Docker": "容器", "frp 服务器": "公网穿透", "frp 客户端": "内网穿透",
+    "UPnP IGD 和 PCP": "端口映射", "UPnP IGD 和 PCP/NAT-PMP": "端口映射",
+    "uHTTPd": "网页服务", "Transmission": "比特传输", "WiFi 计划": "无线计划",
+    "ShadowSocksR Plus+ 设置": "科学上网设置", "ShadowSocksR Plus+": "科学上网",
+    "Argon 主题设置": "主题设置", "Refresh Token": "刷新令牌",
 }
 SUBSTR = [
-    ("动态 DNS", "动态域名"), ("备份与升级", "备份升级"), ("DHCP/DNS", "主机域名"),
+    ("动态 DNS", "动态域名"), ("备份与升级", "备份更新"), ("备份与更新", "备份更新"),
     ("自定义命令", "自定命令"), ("允许匿名用户", "访客"), ("允许旧协议与身份验证（不安全）。", "允许旧协议"),
     ("Apple Time-machine 共享", "时间机器"), ("可浏览", "浏览"), ("创建权限掩码", "创建掩码"),
     ("目录权限掩码", "目录掩码"), ("禁用 Netbios", "禁用 NetBIOS"), ("禁用 Winbind", "禁用 WinBind"),
@@ -128,89 +120,86 @@ SUBSTR = [
 ]
 KID_MOUNT, KID_REBOOT = sfh_hash(b"Mount Points"), sfh_hash(b"Reboot")
 
-if ib_dir and os.path.isdir(ib_dir):
-    pkgs = glob.glob(os.path.join(ib_dir, "**", "*.apk"), recursive=True) + glob.glob(os.path.join(ib_dir, "**", "*.ipk"), recursive=True)
-    pats = ("luci-i18n-", "luci-base", "luci-lua-runtime", "luci-theme-argon", "luci-app-ddns", "luci-app-xfrpc", "luci-app-upnp", "luci-app-uhttpd", "luci-app-wifischedule")
-    with tempfile.TemporaryDirectory() as tmpdir:
-        for pkg in pkgs:
-            bname = os.path.basename(pkg)
-            if not any(bname.startswith(p) for p in pats):
-                continue
-            ext = os.path.join(tmpdir, bname)
-            os.makedirs(ext, exist_ok=True)
-            subprocess.run(["tar", "-xf", pkg, "-C", ext], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for dt in glob.glob(os.path.join(ext, "data.tar.*")):
-                subprocess.run(["tar", "-xf", dt, "-C", ext], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for lmo_path in glob.glob(os.path.join(ext, "usr/lib/lua/luci/i18n/*.zh-cn.lmo")):
-                entries = read_lmo(lmo_path)
-                if not entries:
-                    continue
-                changed = os.path.basename(lmo_path) == "base.zh-cn.lmo"
-                if changed:
-                    entries.update(po_hash_map)
-                for k_id, val in list(entries.items()):
-                    orig = val
-                    if k_id == KID_MOUNT and val == "挂载点": val = "挂载位置"
-                    elif k_id == KID_REBOOT and val == "重启": val = "重新启动"
-                    if val in EXACT: val = EXACT[val]
-                    for o, n in SUBSTR:
-                        if o in val: val = val.replace(o, n)
-                    if k_id in po_hash_map: val = po_hash_map[k_id]
-                    if val != orig:
-                        entries[k_id] = val
-                        changed = True
-                if changed:
-                    write_lmo(os.path.join(files_dir, "usr/lib/lua/luci/i18n", os.path.basename(lmo_path)), entries)
-            for rel in (
-                "www/index.html", "usr/share/ucode/luci/version.uc",
-                "usr/share/luci/menu.d/luci-app-ddns.json", "usr/share/luci/menu.d/luci-app-xfrpc.json",
-                "usr/share/luci/menu.d/luci-app-upnp.json", "usr/share/luci/menu.d/luci-app-uhttpd.json",
-                "usr/share/luci/menu.d/luci-app-wifischedule.json",
-                "usr/share/ucode/luci/template/themes/argon/footer.ut",
-                "usr/share/ucode/luci/template/themes/argon/footer_login.ut",
-            ):
-                src_p = os.path.join(ext, rel)
-                if os.path.isfile(src_p):
-                    dst_p = os.path.join(files_dir, rel)
-                    os.makedirs(os.path.dirname(dst_p), exist_ok=True)
-                    shutil.copy2(src_p, dst_p)
+for lmo_path in sorted(glob.glob(os.path.join(target_dir, "usr/lib/lua/luci/i18n/*.zh-cn.lmo"))):
+    entries = read_lmo(lmo_path)
+    if not entries:
+        continue
+    changed = False
+    for k_id, val in list(entries.items()):
+        orig = val
+        if k_id == KID_MOUNT and val == "挂载点": val = "挂载位置"
+        elif k_id == KID_REBOOT and val == "重启": val = "重新启动"
+        if val in EXACT: val = EXACT[val]
+        for o, n in SUBSTR:
+            if o in val: val = val.replace(o, n)
+        if k_id in po_hash_map: val = po_hash_map[k_id]
+        if val != orig:
+            entries[k_id] = val
+            changed = True
+    if changed:
+        write_lmo(lmo_path, entries)
+        print(f"[ui-replace] Patched LMO: {os.path.basename(lmo_path)}")
 PYEOF
 
-apply_static() {
-	local R="$1"
-	[ -d "$R" ] || return 0
-	if [ -f "$R/www/index.html" ]; then
-		sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$R/www/index.html" && rm -f "$R/www/index.html.bak"
-	fi
-	if [ -f "$R/usr/share/ucode/luci/version.uc" ]; then
-		sed -i.bak -e "s/luciname\s*=\s*\"[^\"]*\"/luciname = \"Yonsm\"/" -e "s/luciversion\s*=\s*\"[^\"]*\"/luciversion = \"$(date +%Y-%m-%d)\"/" "$R/usr/share/ucode/luci/version.uc" && rm -f "$R/usr/share/ucode/luci/version.uc.bak"
-	fi
-	local M="$R/usr/share/luci/menu.d"
-	if [ -f "$M/luci-app-ddns.json" ]; then
-		sed -i.bak 's/59/20/g' "$M/luci-app-ddns.json" && rm -f "$M/luci-app-ddns.json.bak"
-	fi
-	if [ -f "$M/luci-app-xfrpc.json" ]; then
-		sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
-	fi
-	if [ -f "$M/luci-app-upnp.json" ]; then
-		sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
-	fi
-	if [ -f "$M/luci-app-uhttpd.json" ]; then
-		sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
-	fi
-	if [ -f "$M/luci-app-wifischedule.json" ]; then
-		sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"
-	fi
-	for F in "$R/usr/share/ucode/luci/template/themes/argon/footer.ut" "$R/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
-		if [ -f "$F" ]; then
-			sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$F" && rm -f "$F.bak"
-		fi
-	done
-	return 0
-}
-
-apply_static "$FILES_DIR"
-if [ -n "$IB_DIR" ] && [ -d "$IB_DIR" ]; then
-	apply_static "$IB_DIR"
+# 2. 原地修改 TARGET_DIR 中的菜单 JSON、引导页、版本标识与 Argon 页脚模板
+M="$TARGET_DIR/usr/share/luci/menu.d"
+if [ -f "$M/luci-mod-status.json" ]; then
+	sed -i.bak \
+		-e 's/"title": "Routing"/"title": "路由规则"/g' \
+		-e 's/"title": "Firewall"/"title": "防火长城"/g' \
+		-e 's/"title": "Processes"/"title": "系统进程"/g' "$M/luci-mod-status.json" && rm -f "$M/luci-mod-status.json.bak"
 fi
+if [ -f "$M/luci-mod-system.json" ]; then
+	sed -i.bak \
+		-e 's/"title": ".*LED.*Configuration"/"title": "灯光配置"/g' \
+		-e 's/"title": "Backup \/ Flash Firmware"/"title": "备份更新"/g' \
+		-e 's/"title": "Reboot"/"title": "重新启动"/g' "$M/luci-mod-system.json" && rm -f "$M/luci-mod-system.json.bak"
+fi
+if [ -f "$M/luci-app-commands.json" ]; then
+	sed -i.bak 's/"title": "Custom Commands"/"title": "自定命令"/g' "$M/luci-app-commands.json" && rm -f "$M/luci-app-commands.json.bak"
+fi
+for F in "$M"/luci-*argon*.json; do
+	if [ -f "$F" ]; then
+		sed -i.bak 's/"title": "Argon Config"/"title": "主题设置"/g' "$F" && rm -f "$F.bak"
+	fi
+done
+if [ -f "$M/luci-app-ddns.json" ]; then
+	sed -i.bak -e 's/59/20/g' -e 's/"title": "Dynamic DNS"/"title": "动态域名"/g' "$M/luci-app-ddns.json" && rm -f "$M/luci-app-ddns.json.bak"
+fi
+if [ -f "$M/luci-app-upnp.json" ]; then
+	sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' -e 's/"title": "UPnP IGD[^"]*"/"title": "端口映射"/g' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
+fi
+if [ -f "$M/luci-mod-network.json" ]; then
+	sed -i.bak \
+		-e 's/"title": "Routes"/"title": "路由规则"/g' \
+		-e 's/"title": "Routing"/"title": "路由规则"/g' \
+		-e 's/"title": "DHCP"/"title": "网址分配"/g' \
+		-e 's/"title": "DNS"/"title": "网络域名"/g' "$M/luci-mod-network.json" && rm -f "$M/luci-mod-network.json.bak"
+fi
+if [ -f "$M/luci-app-firewall.json" ]; then
+	sed -i.bak 's/"title": "Firewall"/"title": "防火长城"/g' "$M/luci-app-firewall.json" && rm -f "$M/luci-app-firewall.json.bak"
+fi
+if [ -f "$M/luci-app-xfrpc.json" ]; then
+	sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
+fi
+if [ -f "$M/luci-app-uhttpd.json" ]; then
+	sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
+fi
+if [ -f "$M/luci-app-wifischedule.json" ]; then
+	sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"
+fi
+
+if [ -f "$TARGET_DIR/www/index.html" ]; then
+	sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$TARGET_DIR/www/index.html" && rm -f "$TARGET_DIR/www/index.html.bak"
+fi
+if [ -f "$TARGET_DIR/usr/share/ucode/luci/version.uc" ]; then
+	sed -i.bak -e "s/luciname\s*=\s*\"[^\"]*\"/luciname = \"Yonsm\"/" -e "s/luciversion\s*=\s*\"[^\"]*\"/luciversion = \"$(date +%Y-%m-%d)\"/" "$TARGET_DIR/usr/share/ucode/luci/version.uc" && rm -f "$TARGET_DIR/usr/share/ucode/luci/version.uc.bak"
+fi
+for F in "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer.ut" "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
+	if [ -f "$F" ]; then
+		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$F" && rm -f "$F.bak"
+	fi
+done
+
+rm -rf "$TARGET_DIR"/tmp/luci-indexcache* "$TARGET_DIR"/tmp/luci-modulecache* 2>/dev/null || true
 exit 0

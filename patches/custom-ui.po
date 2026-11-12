@@ -10,7 +10,7 @@ msgid "LED Configuration"
 msgstr "灯光配置"
 
 msgid "Backup / Flash Firmware"
-msgstr "备份升级"
+msgstr "备份更新"
 
 msgid "Routes"
 msgstr "路由规则"
@@ -18,11 +18,20 @@ msgstr "路由规则"
 msgid "Routing"
 msgstr "路由规则"
 
+msgid "Processes"
+msgstr "系统进程"
+
 msgid "Mount Points"
 msgstr "挂载位置"
 
 msgid "Reboot"
 msgstr "重新启动"
+
+msgid "DHCP"
+msgstr "网址分配"
+
+msgid "DNS"
+msgstr "网络域名"
 
 msgid "DHCP and DNS"
 msgstr "主机域名"
@@ -32,6 +41,9 @@ msgstr "主机域名"
 
 msgid "Firewall"
 msgstr "防火长城"
+
+msgid "Argon Config"
+msgstr "主题设置"
 
 msgid "Dynamic DNS"
 msgstr "动态域名"
