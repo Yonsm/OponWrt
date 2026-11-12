@@ -1,0 +1,179 @@
+#!/bin/sh
+# ==============================================================================
+# OpenWrt 首次启动 UCI 与系统定制初始化脚本 (99-custom-init)
+# 由原 4-fix 源码补丁与 12_network-generate-ula 无损迁移生成
+# ==============================================================================
+
+# 1. 版本标识精简（去除尾部编译修订号 %C）与软件源腾讯镜像替换
+if [ -f /etc/openwrt_release ]; then
+	sed -i 's/%D %V %C/%D %V/' /etc/openwrt_release
+fi
+for FEED_FILE in /etc/opkg/distfeeds.conf /etc/apk/repositories.d/distfeeds.list; do
+	[ -f "$FEED_FILE" ] && sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#g' "$FEED_FILE"
+done
+
+# 2. 默认 root 密码设置
+sed -i 's#^root:::#root:$1$wEOT4uTc$RlavsXg9yqMy/6V7ZlXHh1:19906:#' /etc/shadow
+
+# 3. 系统基础参数（主机名、时区、NTP 时间服务器）
+uci -q batch <<EOF
+set system.@system[0].hostname='Router'
+set system.@system[0].description='OpenWrt Router'
+set system.@system[0].timezone='CST-8'
+set system.@system[0].zonename='Asia/Shanghai'
+set system.@system[0].conloglevel='6'
+set system.@system[0].cronloglevel='8'
+delete system.ntp.server
+add_list system.ntp.server='ntp.aliyun.com'
+add_list system.ntp.server='cn.pool.ntp.org'
+add_list system.ntp.server='time.ustc.edu.cn'
+commit system
+EOF
+
+# 4. 网络配置（IPv6 ULA 前缀固定为 fd00::/48）
+uci -q batch <<EOF
+set network.globals.ula_prefix='fd00::/48'
+commit network
+EOF
+
+# 5. 默认无线 WiFi 配置（SSID: Router，密码: asdfqwer，加密: psk2，默认开启）
+if [ -f /lib/wifi/mac80211.uc ]; then
+	sed -i -e 's/OpenWrt/Router/' \
+		-e 's/0 : 1/0 : 0/' \
+		-e 's/none/psk2/' \
+		-e 's/key || ""/key || "asdfqwer"/' /lib/wifi/mac80211.uc
+fi
+if [ -f /etc/config/wireless ]; then
+	idx=0
+	while uci -q get wireless.@wifi-device[$idx] >/dev/null 2>&1; do
+		uci -q set wireless.@wifi-device[$idx].disabled='0'
+		idx=$((idx + 1))
+	done
+	idx=0
+	while uci -q get wireless.@wifi-iface[$idx] >/dev/null 2>&1; do
+		uci -q set wireless.@wifi-iface[$idx].ssid='Router'
+		uci -q set wireless.@wifi-iface[$idx].encryption='psk2'
+		uci -q set wireless.@wifi-iface[$idx].key='asdfqwer'
+		uci -q set wireless.@wifi-iface[$idx].disabled='0'
+		idx=$((idx + 1))
+	done
+	uci -q commit wireless
+fi
+
+# 6. uHTTPd Web 服务端口调整（HTTPS 监听端口由 443 改为 81）
+if [ -f /etc/config/uhttpd ]; then
+	sed -i 's/:443/:81/g' /etc/config/uhttpd
+	uci -q commit uhttpd
+fi
+
+# 7. 防火墙 WAN 口放行规则（Allow-SSH 22 / Allow-HTTP 80 / Allow-HTTPS 81）
+if [ -f /etc/config/firewall ] && ! grep -q "Allow-HTTPS" /etc/config/firewall; then
+	cat <<\EOF >> /etc/config/firewall
+
+config rule
+	option name		Allow-SSH
+	option src		wan
+	option proto		tcp
+	option dest_port	22
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTP
+	option src		wan
+	option proto		tcp
+	option dest_port	80
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTPS
+	option src		wan
+	option proto		tcp
+	option dest_port	81
+	option target		ACCEPT
+EOF
+	uci -q commit firewall
+fi
+
+# 8. DHCP / Dnsmasq 配置（开启顺序分配 IP + procd 挂载 gfwlist）
+if [ -f /etc/config/dhcp ]; then
+	uci -q set dhcp.@dnsmasq[0].sequential_ip='1'
+	uci -q commit dhcp
+fi
+if [ -f /etc/init.d/dnsmasq ] && ! grep -Fq "/etc/gfwlist.txt" /etc/init.d/dnsmasq; then
+	sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
+fi
+
+# 9. UPnP 自动开启与固定 UUID
+if [ -f /etc/config/upnpd ]; then
+	uci -q batch <<EOF
+set upnpd.config.enabled='1'
+set upnpd.config.uuid='3943084a-dd61-4636-989c-ab0123456789'
+commit upnpd
+EOF
+fi
+
+# 10. LuCI 默认语言、Argon 主题与自定义命令（关闭系统 / 网络接口 / 科学上网）
+if [ -f /etc/config/luci ]; then
+	uci -q set luci.main.lang='zh_cn'
+	[ -d /www/luci-static/argon ] && uci -q set luci.main.mediaurlbase='/luci-static/argon'
+	uci -q commit luci
+	if ! grep -q "poweroff" /etc/config/luci; then
+		cat <<\EOF >> /etc/config/luci
+
+config command
+	option name '关闭系统'
+	option command 'poweroff'
+
+config command
+	option name '网络接口'
+	option command 'ifconfig'
+
+config command
+	option name '科学上网'
+	option command 'wing'
+	option param '1'
+EOF
+	fi
+fi
+
+# 11. DDNS 默认实例命名（myddns_ipv4 -> IPv4, myddns_ipv6 -> IPv6）
+if [ -f /etc/config/ddns ]; then
+	sed -i -e 's/myddns_ipv4/IPv4/g' -e 's/myddns_ipv6/IPv6/g' /etc/config/ddns
+fi
+
+# 12. Samba4 与 Ksmbd 共享描述与权限逻辑定制（保留原 Stroage 标识与读写权限规则）
+if [ -f /etc/init.d/samba4 ]; then
+	sed -i -e 's/users" ] && printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\twrite list = %s\\n" "$users" || printf "\\tvalid users = %s\\n" "$users")/' \
+		-e 's/read_only" ] && printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' \
+		-e 's/Samba on OpenWrt/Stroage/g' /etc/init.d/samba4
+fi
+if [ -f /etc/config/samba4 ]; then
+	sed -i 's/Samba on Open[Ww][Rr][Tt]/Stroage/g' /etc/config/samba4
+fi
+if [ -f /etc/init.d/ksmbd ]; then
+	sed -i -e 's/users" ] && printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\read list = guest\\n\\twrite list = %s\\n" "$users" || printf "\\tvalid users = %s\\n" "$users")/' \
+		-e 's/read_only" ] && printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' /etc/init.d/ksmbd
+fi
+for KFILE in /etc/config/ksmbd /etc/ksmbd/ksmbd.config.example; do
+	[ -f "$KFILE" ] && sed -i 's/Ksmbd on OpenWrt/Stroage/g' "$KFILE"
+done
+if [ -f /etc/ksmbd/ksmbd.conf.template ] && ! grep -q "veto files" /etc/ksmbd/ksmbd.conf.template; then
+	sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
+		-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/._*/.apdisk/lost+found/\n\t\#cache read buffers#' \
+		-e 's/\tcache trans buffers/\t#cache trans buffers/' /etc/ksmbd/ksmbd.conf.template
+fi
+
+# 13. LuCI 菜单顺序、引导页与 Argon 页脚模板兜底修正
+[ -f /www/index.html ] && sed -i 's/LuCI - Lua Configuration Interface/Loading.../g' /www/index.html
+[ -f /usr/share/ucode/luci/version.uc ] && sed -i 's/luciname\s*=\s*"[^"]*"/luciname = "Yonsm"/' /usr/share/ucode/luci/version.uc
+[ -f /usr/share/luci/menu.d/luci-app-ddns.json ] && sed -i 's/59/20/g' /usr/share/luci/menu.d/luci-app-ddns.json
+[ -f /usr/share/luci/menu.d/luci-app-xfrpc.json ] && sed -i -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' /usr/share/luci/menu.d/luci-app-xfrpc.json
+[ -f /usr/share/luci/menu.d/luci-app-upnp.json ] && sed -i -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' /usr/share/luci/menu.d/luci-app-upnp.json
+[ -f /usr/share/luci/menu.d/luci-app-uhttpd.json ] && sed -i -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' /usr/share/luci/menu.d/luci-app-uhttpd.json
+[ -f /usr/share/luci/menu.d/luci-app-wifischedule.json ] && sed -i 's/services/network/g' /usr/share/luci/menu.d/luci-app-wifischedule.json
+for FOOTER in /usr/share/ucode/luci/template/themes/argon/footer.ut /usr/share/ucode/luci/template/themes/argon/footer_login.ut; do
+	[ -f "$FOOTER" ] && sed -i -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$FOOTER"
+done
+rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache* 2>/dev/null
+
+exit 0

@@ -1,4 +1,0 @@
-iptable_nat
-xt_MASQUERADE
-xt_REDIRECT
-xt_nat

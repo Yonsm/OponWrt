@@ -1,4 +1,0 @@
-#!/bin/bash
-[ $(basename `pwd`) = openwrt ] || cd ${0%/*}/openwrt >/dev/null 2>&1 || exit
-
-make -j $(($(nproc)+1)) || make -j1 V=s

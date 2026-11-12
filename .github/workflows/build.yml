@@ -1,0 +1,32 @@
+name: Build OpenWrt Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: "设备预设 (如 X64+DOCKER+WIFI, CM520, K2P, C5, NEWIFI3, Y1, RMAX6000, ALL)"
+        required: true
+        default: "X64+DOCKER+WIFI"
+      openwrt_version:
+        description: "OpenWrt 版本号 (留空则自动追踪最新正式 Release 版)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Image via ImageBuilder
+        run: ./build.sh "${{ inputs.preset }}" "${{ inputs.openwrt_version }}"
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt-Firmware-${{ inputs.preset }}
+          path: output/*
