@@ -164,25 +164,11 @@ HOOK_EOF
 	local ATTEMPT=1
 	EXTRA_IMAGE_NAME=""
 	if [ "$TARGET_PROFILE" = "mobipromo_cm520-79f" ]; then
-		DTB_FILE=$(find "$WORK_IB/build_dir" -name "*cm520-79f.dtb" | head -n 1)
-		DTC_BIN=$(find "$WORK_IB" -name dtc -type f 2>/dev/null | head -n 1)
-		[ ! -x "$DTC_BIN" ] && DTC_BIN=$(command -v dtc || true)
-		if [ -n "$DTB_FILE" ] && [ -f "$DTB_FILE.orig" ]; then
-			cp -f "$DTB_FILE.orig" "$DTB_FILE"
-		fi
 		if [ "${OPBOOT:-0}" = "1" ] || [[ "$PRESET" == *+OPBOOT* ]]; then
-			if [ -n "$DTB_FILE" ] && [ -n "$DTC_BIN" ]; then
-				[ ! -f "$DTB_FILE.orig" ] && cp -f "$DTB_FILE" "$DTB_FILE.orig"
-				"$DTC_BIN" -q -I dtb -O dts -o "$DTB_FILE.dts" "$DTB_FILE"
-				python3 -c 'import re,sys; p=sys.argv[1]; s=open(p,encoding="utf-8").read(); q=chr(34); s=re.sub(r"(label\s*=\s*)\x22ubi\x22",lambda m:m.group(1)+q+"rootfs"+q,s); assert q+"rootfs"+q in s; ins=f"\n\t\tbootargs-append = {q} ubi.block=0,1 root=/dev/ubiblock0_1{q};"; s=s if "ubi.block=0,1" in s else (re.sub(r"(\bchosen\s*\{)",lambda m:m.group(1)+ins,s,count=1) if re.search(r"\bchosen\s*\{",s) else re.sub(r"(/\s*\{)",lambda m:m.group(1)+"\n\tchosen {"+ins+"\n\t};",s,count=1)); open(p,"w",encoding="utf-8").write(s)' "$DTB_FILE.dts"
-				"$DTC_BIN" -q -I dts -O dtb -o "$DTB_FILE" "$DTB_FILE.dts"
-				rm -f "$DTB_FILE.dts"
-				EXTRA_IMAGE_NAME="opboot"
-				echo "[build] Patched CM520 DTB for OpBoot (rootfs + bootargs-append)"
-			else
-				echo "[build] ERROR: CM520 DTB or dtc not found" >&2
-				exit 1
-			fi
+			"$SCRIPT_DIR/extras/cm520.sh" "$WORK_IB" opboot
+			EXTRA_IMAGE_NAME="opboot"
+		else
+			"$SCRIPT_DIR/extras/cm520.sh" "$WORK_IB" restore
 		fi
 	fi
 	until make -C "$WORK_IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES" ${EXTRA_IMAGE_NAME:+EXTRA_IMAGE_NAME="$EXTRA_IMAGE_NAME"}; do
