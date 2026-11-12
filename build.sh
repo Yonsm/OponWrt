@@ -124,10 +124,17 @@ PYEOF
 	# 在打包镜像前对 TARGET_DIR 原地执行 UI 词条、菜单与模板定制
 	if [ -f "$WORK_IB/Makefile" ]; then
 		sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$WORK_IB/Makefile"
-		if ! grep -q "ui-replace.sh" "$WORK_IB/Makefile"; then
-			grep -q "build_image" "$WORK_IB/Makefile" || { echo "[build] Error: build_image target not found in ImageBuilder Makefile" >&2; return 1; }
-			sed -i "s|\$(MAKE) build_image|$SCRIPT_DIR/patches/ui-replace.sh \$(TARGET_DIR); &|" "$WORK_IB/Makefile"
-		fi
+		python3 - "$WORK_IB/Makefile" "$SCRIPT_DIR/patches/ui-replace.sh" <<'HOOK_EOF'
+import re, sys
+mf, hook = sys.argv[1], sys.argv[2]
+txt = open(mf, "r", encoding="utf-8").read()
+if hook not in txt:
+    txt2, n = re.subn(r"(^build_image:[^\n]*\n)", rf"\1\t{hook} $(TARGET_DIR)\n", txt, count=1, flags=re.M)
+    if n != 1:
+        raise SystemExit("[build] Error: build_image: target not found in ImageBuilder Makefile")
+    open(mf, "w", encoding="utf-8").write(txt2)
+    print("[build] Hooked ui-replace.sh into build_image target")
+HOOK_EOF
 	fi
 
 	if [ "$TARGET_BOARD" = "x86" ]; then

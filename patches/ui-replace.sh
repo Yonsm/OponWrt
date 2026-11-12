@@ -183,7 +183,7 @@ if [ -f "$M/luci-app-xfrpc.json" ]; then
 	sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
 fi
 if [ -f "$M/luci-app-uhttpd.json" ]; then
-	sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "uHTTPd",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
+	sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "网页服务",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
 fi
 if [ -f "$M/luci-app-wifischedule.json" ]; then
 	sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"
