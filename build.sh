@@ -27,6 +27,13 @@ build_single_preset() {
 	echo "[build] $PRESET -> $TARGET_BOARD/$TARGET_SUBTARGET ($TARGET_PROFILE, $PKG_ARCH)"
 
 	local WORK_IB="/tmp/openwrt-ib-${TARGET_BOARD}-${TARGET_SUBTARGET}"
+	local WORK_FILES="/tmp/openwrt-files-${PRESET}"
+	rm -rf "$WORK_FILES"
+	cp -a "$SCRIPT_DIR/files" "$WORK_FILES"
+	[[ "$PRESET" != *"+NOWING"* ]] && cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
+	([[ "$PRESET" == X64* ]] || [[ "$PRESET" == *"+SMB4"* ]]) && cp -a "$SCRIPT_DIR/extras/samba4/"* "$WORK_FILES/"
+	[[ "$PRESET" == *"+HASS"* ]] && cp -a "$SCRIPT_DIR/extras/hass/"* "$WORK_FILES/"
+	find "$WORK_FILES" -name ".DS_Store" -delete
 	python3 - "$OPENWRT_VER" "$OPENWRT_SERIES" "$TARGET_BOARD" "$TARGET_SUBTARGET" "$PKG_ARCH" "$WORK_IB" <<'PYEOF'
 import os, re, sys, json, subprocess, urllib.request
 
@@ -79,11 +86,6 @@ for cand_series in (series, "24.10"):
                 urllib.request.urlretrieve(f"{im_base}/{m.group(1)}", dst)
     break
 PYEOF
-
-	# 使用临时目录合并文件并编译翻译，避免污染工作区 files/
-	local WORK_FILES="/tmp/openwrt-files-${PRESET}"
-	rm -rf "$WORK_FILES"
-	cp -a "$SCRIPT_DIR/files" "$WORK_FILES"
 
 	# 跳过第三方本地包的签名强校验
 	[ -f "$WORK_IB/repositories.conf" ] && sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
