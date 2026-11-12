@@ -167,7 +167,8 @@ if [ -f "$M/luci-app-ddns.json" ]; then
 	sed -i.bak -e 's/59/20/g' -e 's/"title": "Dynamic DNS"/"title": "动态域名"/g' "$M/luci-app-ddns.json" && rm -f "$M/luci-app-ddns.json.bak"
 fi
 if [ -f "$M/luci-app-upnp.json" ]; then
-	sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\n\t\t"order": 22,/' -e 's/"title": "UPnP IGD[^"]*"/"title": "端口映射"/g' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
+	sed -i.bak -e '/"order"/d' -e 's/PCP",/PCP",\
+		"order": 22,/' -e 's/"title": "UPnP IGD[^"]*"/"title": "端口映射"/g' "$M/luci-app-upnp.json" && rm -f "$M/luci-app-upnp.json.bak"
 fi
 if [ -f "$M/luci-mod-network.json" ]; then
 	sed -i.bak \
@@ -180,10 +181,12 @@ if [ -f "$M/luci-app-firewall.json" ]; then
 	sed -i.bak 's/"title": "Firewall"/"title": "防火长城"/g' "$M/luci-app-firewall.json" && rm -f "$M/luci-app-firewall.json.bak"
 fi
 if [ -f "$M/luci-app-xfrpc.json" ]; then
-	sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\n\t\t"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
+	sed -i.bak -e '/"order"/d' -e 's/"title": "Reverse proxy",/"title": "Reverse proxy",\
+		"order": 21,/' "$M/luci-app-xfrpc.json" && rm -f "$M/luci-app-xfrpc.json.bak"
 fi
 if [ -f "$M/luci-app-uhttpd.json" ]; then
-	sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "网页服务",\n\t\t"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
+	sed -i.bak -e '/"order"/d' -e 's/"title": "uHTTPd",/"title": "网页服务",\
+		"order": 25,/' "$M/luci-app-uhttpd.json" && rm -f "$M/luci-app-uhttpd.json.bak"
 fi
 if [ -f "$M/luci-app-wifischedule.json" ]; then
 	sed -i.bak 's/services/network/g' "$M/luci-app-wifischedule.json" && rm -f "$M/luci-app-wifischedule.json.bak"

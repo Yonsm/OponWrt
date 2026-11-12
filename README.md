@@ -35,7 +35,7 @@ OpenWrt 官方暂未收录高通 MSM8916 随身 WiFi，但可使用社区 [msm89
 * **使用方式**：先用 `edl` 备份原厂分区并刷入社区底包，连网后在本地执行：
 
 ```bash
-chmod +x extras/msm8916.sh && ./extras/msm8916.sh root@192.168.1.1
+./extras/msm8916.sh root@192.168.1.1
 ```
 
 参考：[OpenWrt](https://github.com/openwrt/openwrt) · [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) · [Argon](https://github.com/jerrykuku/luci-theme-argon)
