@@ -118,7 +118,7 @@ PYEOF
 	local VALID_PKGS=""
 	for pkg in $FINAL_PACKAGES; do
 		case "$pkg" in
-		shadowsocksr-libev-ssr-redir|trojan|ipt2socks|tcping|chinadns-ng)
+		shadowsocks-libev-ss-redir|simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|ipt2socks|tcping|chinadns-ng)
 			if ls "$WORK_IB/packages/${pkg}"* >/dev/null 2>&1; then
 				VALID_PKGS="$VALID_PKGS $pkg"
 			else
