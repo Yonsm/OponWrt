@@ -161,7 +161,13 @@ HOOK_EOF
 		esac
 	done
 
-	make -C "$WORK_IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES"
+	local ATTEMPT=1
+	until make -C "$WORK_IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES"; do
+		[ "$ATTEMPT" -ge 3 ] && return 1
+		echo "[build] Image build failed (attempt $ATTEMPT/3), retrying in 10s..."
+		ATTEMPT=$((ATTEMPT + 1))
+		sleep 10
+	done
 
 	mkdir -p "$SCRIPT_DIR/output"
 	cp -av "$WORK_IB/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"/* "$SCRIPT_DIR/output/"

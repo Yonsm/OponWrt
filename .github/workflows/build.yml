@@ -35,12 +35,13 @@ jobs:
     needs: prepare
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         preset: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Host Dependencies
         run: |
@@ -51,7 +52,7 @@ jobs:
         run: ./build.sh "${{ matrix.preset }}" "${{ inputs.openwrt_version }}"
 
       - name: Upload Firmware Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenWrt-Firmware-${{ matrix.preset }}
           path: output/*
