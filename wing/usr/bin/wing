@@ -73,22 +73,22 @@ dns() {
 	if type chinadns-ng >/dev/null 2>&1; then
 		local DNS_HELP=$(chinadns-ng -h 2>&1)
 		if [ "${_GFW_LIST##*.}" = txt -a "$WING_CHINADNS" = 1 ]; then
-			echo "DNS:      dnsmasq + chinadns-ng (ChinaDNS split)"
+			echo "DNS: dnsmasq + chinadns-ng (ChinaDNS split)"
 			local DNS_FILTER=g
 			case "$DNS_HELP" in *tag:*) DNS_FILTER=tag:gfw;; esac
 			chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N $DNS_FILTER -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8 &
 			LINE="server=/#/127.0.0.1#5354"
 		else
-			echo "DNS:      dnsmasq + chinadns-ng (GFW list)"
+			echo "DNS: dnsmasq + chinadns-ng (GFW list)"
 			local DNS_FILTER=
 			case "$DNS_HELP" in *--filter-qtype*) DNS_FILTER="--filter-qtype 64,65";; esac
 			chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N $DNS_FILTER -t tcp://8.8.8.8 &
 		fi
 	elif type dns2tcp >/dev/null 2>&1; then
-		echo "DNS:      dnsmasq + dns2tcp (GFW list)"
+		echo "DNS: dnsmasq + dns2tcp (GFW list)"
 		dns2tcp -L 0.0.0.0#5354 -R 8.8.8.8#53 &
 	elif type dns-forwarder >/dev/null 2>&1; then
-		echo "DNS:      dnsmasq + dns-forwarder (GFW list)"
+		echo "DNS: dnsmasq + dns-forwarder (GFW list)"
 		dns-forwarder -p 5354 &
 	else
 		echo "Error: no DNS forwarder found (chinadns-ng, dns2tcp or dns-forwarder required)" >&2
@@ -355,11 +355,11 @@ proxy() {
 	if [ $_MODE = ROUTER ]; then
 		[ "$_NFT" = 1 ] && local FW=nftables || local FW=iptables/ipset
 		echo "FIREWALL: $FW"
-		echo "MODE:     GFW list"
+		echo "MODE: GFW list"
 	elif [ $_OS = MACOS ]; then
-		[ "$WING_PAC" = 1 ] && echo "MODE:     system PAC" || echo "MODE:     system SOCKS"
+		[ "$WING_PAC" = 1 ] && echo "MODE: system PAC" || echo "MODE: system SOCKS"
 	else
-		echo "MODE:     manual SOCKS"
+		echo "MODE: manual SOCKS"
 	fi
 }
 
@@ -516,7 +516,7 @@ start() {
 		;;
 	socks5)
 		[ -z $_PORT ] && _PORT=1080
-		[ $_MODE = ROUTER ] && echo "CORE:     ipt2socks" || echo "CORE:     remote SOCKS5"
+		[ $_MODE = ROUTER ] && echo "CORE: ipt2socks" || echo "CORE: remote SOCKS5"
 		proxy $1 $_PROT $_HOST $_PORT
 		return
 		;;
@@ -564,7 +564,7 @@ start() {
 	esac
 
 	touch /tmp/wing.log
-	echo "CORE:     ${XCMD%% *}"
+	echo "CORE: ${XCMD%% *}"
 	proxy $1 $_PROT 127.0.0.1 1080 || return 1
 
 	if [ $1 -ge 4 ]; then
