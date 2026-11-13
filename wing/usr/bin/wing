@@ -71,18 +71,28 @@ dns() {
 	[ "$1" = off ] && return
 
 	if type chinadns-ng >/dev/null 2>&1; then
+		local DNS_HELP=$(chinadns-ng -h 2>&1)
 		if [ "${_GFW_LIST##*.}" = txt -a "$WING_CHINADNS" = 1 ]; then
-			(chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N tag:gfw -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8 ||
-			 { [ $? = 1 ] && chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N g -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8; }) &
+			echo "DNS:      dnsmasq + chinadns-ng (ChinaDNS split)"
+			local DNS_FILTER=g
+			case "$DNS_HELP" in *tag:*) DNS_FILTER=tag:gfw;; esac
+			chinadns-ng -b 0.0.0.0 -l 5354 -g "$_GFW_LIST" -d chn -A gfwlist -N $DNS_FILTER -c "${WING_DNS:-223.5.5.5}" -t tcp://8.8.8.8 &
 			LINE="server=/#/127.0.0.1#5354"
 		else
-			(chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N --filter-qtype 64,65 -t tcp://8.8.8.8 ||
-			 { [ $? = 1 ] && chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N -t tcp://8.8.8.8; }) &
+			echo "DNS:      dnsmasq + chinadns-ng (GFW list)"
+			local DNS_FILTER=
+			case "$DNS_HELP" in *--filter-qtype*) DNS_FILTER="--filter-qtype 64,65";; esac
+			chinadns-ng -b 0.0.0.0 -l 5354 -d gfw -N $DNS_FILTER -t tcp://8.8.8.8 &
 		fi
 	elif type dns2tcp >/dev/null 2>&1; then
+		echo "DNS:      dnsmasq + dns2tcp (GFW list)"
 		dns2tcp -L 0.0.0.0#5354 -R 8.8.8.8#53 &
-	else
+	elif type dns-forwarder >/dev/null 2>&1; then
+		echo "DNS:      dnsmasq + dns-forwarder (GFW list)"
 		dns-forwarder -p 5354 &
+	else
+		echo "Error: no DNS forwarder found (chinadns-ng, dns2tcp or dns-forwarder required)" >&2
+		return 1
 	fi
 	if [ -z "$LINE" ]; then
 		if [ "${_GFW_LIST##*.}" = txt ]; then
@@ -336,9 +346,21 @@ proxy() {
 			ipset add gfwlist 149.154.165.96
 			ipset add gfwlist 149.154.167.151
 		fi
-		dns on
+		if ! dns on; then
+			[ "$_NFT" = 1 ] && nft delete table inet wing 2>/dev/null || ipset destroy gfwlist 2>/dev/null
+			return 1
+		fi
 	fi
-	inject -A $3 $4
+	inject -A $3 $4 || return 1
+	if [ $_MODE = ROUTER ]; then
+		[ "$_NFT" = 1 ] && local FW=nftables || local FW=iptables/ipset
+		echo "FIREWALL: $FW"
+		echo "MODE:     GFW list"
+	elif [ $_OS = MACOS ]; then
+		[ "$WING_PAC" = 1 ] && echo "MODE:     system PAC" || echo "MODE:     system SOCKS"
+	else
+		echo "MODE:     manual SOCKS"
+	fi
 }
 
 resolve() {
@@ -494,6 +516,7 @@ start() {
 		;;
 	socks5)
 		[ -z $_PORT ] && _PORT=1080
+		[ $_MODE = ROUTER ] && echo "CORE:     ipt2socks" || echo "CORE:     remote SOCKS5"
 		proxy $1 $_PROT $_HOST $_PORT
 		return
 		;;
@@ -541,7 +564,8 @@ start() {
 	esac
 
 	touch /tmp/wing.log
-	proxy $1 $_PROT 127.0.0.1 1080
+	echo "CORE:     ${XCMD%% *}"
+	proxy $1 $_PROT 127.0.0.1 1080 || return 1
 
 	if [ $1 -ge 4 ]; then
 		$XCMD &
@@ -612,12 +636,12 @@ case $1 in
 start) start 5 "$2" ;;
 stop) stop ;;
 restart) stop && start 5 "$2" ;;
-pause) inject -D ;;
-resume) resume ;;
+pause) inject -D && { [ $_OS = LINUX ] || echo "Proxy paused"; } ;;
+resume) resume && { [ $_OS = LINUX ] || echo "Proxy resumed"; } ;;
 update) update "$2" "$3" "$4" ;;
 -s|status) status "$2" ;;
 -h) usage ;;
 -v) start 0 "$2" ;;
 -v0|-v1|-v2|-v3|-v4|-v5) start ${1:2} "$2" ;;
-*) [ ! -f /tmp/wing.log ] || stop || exit 1; start 5 "$1" ;;
+*) [ -n "$1$WING_URL$_PROT" ] || usage; [ ! -f /tmp/wing.log ] || stop || exit 1; start 5 "$1" ;;
 esac
