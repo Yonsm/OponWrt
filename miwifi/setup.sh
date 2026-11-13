@@ -37,6 +37,7 @@ POST="$POST	opkg update"
 POST="$POST	opkg -d xpkg --force-depends install frpc frps htop iperf3 jq screen socat sqlite3-cli mosquitto-nossl openssh-sftp-server"
 POST="$POST	mkdir -p /data/other/libexec"
 POST="$POST	ln -sf /data/other/xpkg/usr/libexec/sftp-server /data/other/libexec/sftp-server"
+POST="$POST	printf \"listener 1883\nallow_anonymous true\nallow_zero_length_clientid true\n\" > /data/other/xpkg/etc/mosquitto/mosquitto.conf"
 POST="$POST	/data/wing/wing update /data/wing/gfwlist.conf"
 
 # ROOT + WING 开机执行
@@ -52,13 +53,12 @@ if [ -z "$LOCAL" ] && [ -f ~/.ssh/authorized_keys ]; then
 fi
 
 SHOW() {
-	for CMD in `echo "$1"|tr " " "?"`
-	do
-		CMD=`echo $CMD|tr "?" " "`
+	printf '%s' "$1" | tr '\t' '\n' | while IFS= read -r CMD; do
+		[ -z "$CMD" ] && continue
 		if [ -n "$LOCAL" ]; then
-			echo  $CMD
+			printf '%s\n' "$CMD"
 		else
-			echo  "ssh root@$HOST '$CMD'"
+			printf "ssh root@$HOST '%s'\n" "$CMD"
 		fi
 	done
 }
