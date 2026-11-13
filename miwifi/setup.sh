@@ -34,7 +34,8 @@ ADD wing
 # 文件推送后在设备上安装可选工具（feed 由 root/opkg.sh 配置）
 POST="/data/root/opkg.sh"
 POST="$POST	opkg update"
-POST="$POST	opkg -d xpkg --force-depends install frpc frps htop iperf3 jq screen socat sqlite3-cli mosquitto-nossl"
+POST="$POST	opkg -d xpkg --force-depends install htop iperf3 jq screen socat sqlite3-cli mosquitto-nossl"
+POST="$POST	opkg -d xpkg --force-depends install frpc frps"
 POST="$POST	opkg -d xpkg --force-depends --nodeps install openssh-sftp-server"
 POST="$POST	rm -rf /data/other/xpkg/etc/config /data/other/xpkg/etc/init.d /data/other/xpkg/etc/screenrc /data/other/xpkg/etc/ssl"
 POST="$POST	mkdir -p /data/other/libexec"
