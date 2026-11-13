@@ -120,7 +120,7 @@ update() {
 	[ ! -z "$1" ] && _GFW_LIST="$1"
 	_FMT=${_GFW_LIST##*.}
 	_GFW_TMP=$(mktemp /tmp/gfwlist.XXXXXX) || return 1
-	if ! curl -fSs --connect-timeout 10 --max-time 60 -o $_GFW_TMP https://yonsm.github.io/OponWrt/extras/wing/etc/gfwlist.txt; then
+	if ! curl -fSs --connect-timeout 10 --max-time 60 -o $_GFW_TMP https://yonsm.github.io/OponWrt/wing/etc/gfwlist.txt; then
 		printf 'githubusercontent.com\nyonsm.github.io\n' > $_GFW_TMP
 		echo "Update gfwlist failed! You should run wing update $_GFW_LIST again."
 	fi

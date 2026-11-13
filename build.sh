@@ -63,7 +63,7 @@ PYEOF
 	rm -rf "$WORK_FILES"
 	cp -a "$SCRIPT_DIR/files" "$WORK_FILES"
 	if [[ "$PRESET" != *"+NOWING"* ]]; then
-		cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
+		cp -a "$SCRIPT_DIR/wing/"* "$WORK_FILES/"
 	fi
 	if [ "$TARGET_BOARD/$TARGET_SUBTARGET" = x86/64 ]; then
 		cp -a "$SCRIPT_DIR/extras/x86/"* "$WORK_FILES/"

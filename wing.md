@@ -68,9 +68,9 @@ OPKG_CONF_DIR=$pku_dir opkg install jsonfilter sing-box && {
 (
     mkdir -p /data/wing || exit 1
     for f in chinadns-ng dns-forwarder ipt2socks libsodium.so.23 libudns.so.0 ss-redir ssr-redir trojan; do
-        curl -fL "https://yonsm.github.io/DIY/MIWIFI/wing/$f" -o "/data/wing/$f" || exit 1
+        curl -fL "https://yonsm.github.io/OponWrt/miwifi/$f" -o "/data/wing/$f" || exit 1
     done
-    curl -fL https://yonsm.github.io/OponWrt/extras/wing/usr/bin/wing -o /data/wing/wing || exit 1
+    curl -fL https://yonsm.github.io/OponWrt/wing/usr/bin/wing -o /data/wing/wing || exit 1
     chmod +x /data/wing/wing /data/wing/chinadns-ng /data/wing/dns-forwarder /data/wing/ipt2socks /data/wing/ss-redir /data/wing/ssr-redir /data/wing/trojan
 )
 ```
@@ -118,5 +118,5 @@ Linux 需要 Bash。VMess 另需 `jq` 或 `jsonfilter`。按实际需要安装�
 ## 相关链接
 
 - 北大镜像：[OpenWrt](https://mirrors.pku.edu.cn/openwrt/releases/) · [ImmortalWrt](https://mirrors.pku.edu.cn/immortalwrt/releases/)
-- 小米依赖：[MIWIFI/wing](https://github.com/Yonsm/DIY/tree/main/MIWIFI/wing)
+- 小米依赖：[miwifi](https://github.com/Yonsm/OponWrt/tree/main/miwifi)
 - 客户端：[sing-box](https://github.com/SagerNet/sing-box/releases) · [Xray](https://github.com/XTLS/Xray-core/releases) · [Shadowsocks Rust](https://github.com/shadowsocks/shadowsocks-rust/releases) · [Trojan](https://github.com/trojan-gfw/trojan/releases) · [Shadowsocks libev](https://github.com/shadowsocks/shadowsocks-libev) · [ShadowsocksR libev](https://github.com/shadowsocksrr/shadowsocksr-libev)
