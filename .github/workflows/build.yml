@@ -1,4 +1,6 @@
-name: Build OpenWrt Firmware
+name: "构建固件：OpenWrt"
+
+run-name: "OpenWrt ${{ inputs.openwrt_version || '最新版' }} · ${{ inputs.preset }}"
 
 on:
   workflow_dispatch:
@@ -17,6 +19,7 @@ permissions:
 
 jobs:
   prepare:
+    name: 解析预设
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -32,6 +35,7 @@ jobs:
           fi
 
   build:
+    name: 构建
     needs: prepare
     strategy:
       fail-fast: false
@@ -40,22 +44,22 @@ jobs:
         preset: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v7
 
-      - name: Install Host Dependencies
+      - name: 安装依赖
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq build-essential bzip2 gawk gettext libncurses5-dev libssl-dev patch perl python3 python3-setuptools rsync unzip zlib1g-dev file wget zstd xz-utils
 
-      - name: Build Image via ImageBuilder
+      - name: 构建镜像
         env:
           PRESET: ${{ matrix.preset }}
           OPENWRT_VERSION: ${{ inputs.openwrt_version }}
         run: ./build.sh "$PRESET" "$OPENWRT_VERSION"
 
-      - name: Upload Firmware Artifacts
+      - name: 上传固件
         uses: actions/upload-artifact@v7
         with:
-          name: OpenWrt-Firmware-${{ matrix.preset }}
+          name: OponWrt_${{ matrix.preset }}
           path: output/*

@@ -39,6 +39,6 @@ OpenWrt 官方暂未收录高通 MSM8916 随身 WiFi。本项目用社区底包�
 ./msm8916.sh .cache/msm8916-imagebuilder.tar.zst UFI003
 ```
 
-GitHub Actions 的 **Build MSM8916 Firmware** 会自动获取上游最新 Release 的 ImageBuilder 并构建。刷写前先按上游说明用 `edl` 备份原厂分区。
+GitHub Actions 的 **构建固件：MSM8916** 会自动获取上游最新 Release 的 ImageBuilder 并构建。刷写前先按上游说明用 `edl` 备份原厂分区。
 
 参考：[OpenWrt](https://github.com/openwrt/openwrt) · [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) · [Argon](https://github.com/jerrykuku/luci-theme-argon)

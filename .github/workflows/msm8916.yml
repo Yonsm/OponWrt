@@ -1,4 +1,6 @@
-name: Build MSM8916 Firmware
+name: "构建固件：MSM8916"
+
+run-name: "MSM8916 · ${{ inputs.preset }}"
 
 on:
   workflow_dispatch:
@@ -16,19 +18,21 @@ permissions:
 
 jobs:
   build:
+    name: 构建
     runs-on: ubuntu-22.04
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v7
-      - name: Free build space
+      - name: 检出代码
+        uses: actions/checkout@v7
+      - name: 清理磁盘空间
         run: |
           sudo rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android
           sudo apt-get clean
-      - name: Install build dependencies
+      - name: 安装依赖
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq build-essential bzip2 gawk gettext libncurses5-dev libssl-dev patch perl python3 python3-setuptools rsync unzip zlib1g-dev file wget zstd xz-utils
-      - name: Resolve upstream release
+      - name: 解析上游版本
         id: upstream
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,13 +43,13 @@ jobs:
           version=$(gh api "repos/$repo/contents/devenv/.env?ref=$commit" --jq .content | base64 --decode | sed -n 's/^OPENWRT_VERSION=v\{0,1\}\([0-9][0-9.]*\)$/\1/p')
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Unsupported upstream OpenWrt version: $version" >&2; exit 1; }
           printf 'tag=%s\ncommit=%s\nversion=%s\n' "$tag" "$commit" "$version" >> "$GITHUB_OUTPUT"
-      - name: Restore MSM8916 ImageBuilder cache
+      - name: 恢复 ImageBuilder 缓存
         id: imagebuilder-cache
         uses: actions/cache/restore@v5
         with:
           path: .cache/msm8916-imagebuilder.tar.zst
           key: msm8916-imagebuilder-${{ steps.upstream.outputs.commit }}-standalone-v1
-      - name: Build MSM8916 ImageBuilder
+      - name: 构建 ImageBuilder
         if: steps.imagebuilder-cache.outputs.cache-hit != 'true'
         env:
           UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
@@ -65,20 +69,21 @@ jobs:
           mapfile -t archives < <(find openwrt/bin/targets/msm89xx/msm8916 -maxdepth 1 -type f -name '*imagebuilder*.tar.zst')
           [ "${#archives[@]}" -eq 1 ] || { echo 'Expected one ImageBuilder archive' >&2; exit 1; }
           cp "${archives[0]}" "$GITHUB_WORKSPACE/.cache/msm8916-imagebuilder.tar.zst"
-      - name: Save MSM8916 ImageBuilder cache
+      - name: 保存 ImageBuilder 缓存
         if: steps.imagebuilder-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .cache/msm8916-imagebuilder.tar.zst
           key: msm8916-imagebuilder-${{ steps.upstream.outputs.commit }}-standalone-v1
-      - name: Build firmware
+      - name: 构建固件
         env:
           PRESET: ${{ inputs.preset }}
           OPENWRT_VERSION: ${{ steps.upstream.outputs.version }}
         run: ./msm8916.sh .cache/msm8916-imagebuilder.tar.zst "$PRESET"
-      - uses: actions/upload-artifact@v7
+      - name: 上传固件
+        uses: actions/upload-artifact@v7
         with:
-          name: MSM8916-${{ inputs.preset }}
+          name: MSM8916_${{ inputs.preset }}
           path: |
             output/*/*sysupgrade.bin
             output/*/*.manifest
