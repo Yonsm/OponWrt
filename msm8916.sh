@@ -70,17 +70,28 @@ for asset in release['assets']:
 if found != set(prefixes):
     raise SystemExit('Argon release does not contain all required APKs')
 if '+NOWING' not in preset:
+    missing = {'chinadns-ng', 'ipt2socks', 'simple-obfs-client', 'shadowsocksr-libev-ssr-redir', 'trojan', 'tcping'}
     base = f'https://downloads.immortalwrt.org/releases/packages-{series}/aarch64_generic/packages'
     html = get(base + '/').decode('utf-8', 'replace')
-    for pkg in ('chinadns-ng', 'ipt2socks', 'simple-obfs-client', 'shadowsocksr-libev-ssr-redir', 'trojan', 'tcping'):
-        match = re.search(r'href="(' + re.escape(pkg) + r'[_-][0-9][^"]*\.apk)"', html)
-        if not match:
-            if pkg in ('chinadns-ng', 'ipt2socks'):
-                raise SystemExit('Required Wing package missing: ' + pkg)
-            continue
-        name = match.group(1)
-        with open(os.path.join(pkg_dir, name), 'wb') as f:
-            f.write(get(base + '/' + name))
+    for pkg in sorted(missing):
+        match = re.search(re.escape(pkg) + r'[_-][0-9][^"/]*\.apk', html)
+        if match:
+            name = match.group(0)
+            with open(os.path.join(pkg_dir, name), 'wb') as f:
+                f.write(get(base + '/' + name))
+            missing.discard(pkg)
+    # SSR 已不在 ImmortalWrt 源中，Passwall 的 25.12 构建（libpcre2）可作替代。
+    if missing:
+        rss = get(f'https://sourceforge.net/projects/openwrt-passwall-build/rss?path=/releases/packages-{series}/aarch64_generic/passwall_packages').decode('utf-8', 'replace')
+        for pkg in sorted(missing):
+            match = re.search(r'https?://[^<"]+/(' + re.escape(pkg) + r'[_-][0-9][^"<]*\.apk)', rss)
+            if match:
+                with open(os.path.join(pkg_dir, match.group(1)), 'wb') as f:
+                    f.write(get(match.group(0) + '/download'))
+                missing.discard(pkg)
+    for pkg in ('chinadns-ng', 'ipt2socks'):
+        if pkg in missing:
+            raise SystemExit('Required Wing package missing: ' + pkg)
 PYEOF
 
 # ImageBuilder includes third-party APKs downloaded above.
