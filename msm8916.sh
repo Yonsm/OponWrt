@@ -126,11 +126,13 @@ make -C "$IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FIL
 mkdir -p "$SCRIPT_DIR/output"
 OUTPUT_DIR="$(mktemp -d "$SCRIPT_DIR/output/OponWrt_msm8916_${PRESET}-XXXXXXXX")"
 shopt -s nullglob
+NAME="OponWrt_msm8916_${PRESET}"
 images=("$IB"/bin/targets/msm89xx/msm8916/*ufi003*sysupgrade.bin)
 [ "${#images[@]}" -eq 1 ] || { echo 'Expected one UFI003 sysupgrade image' >&2; exit 1; }
-cp -av "${images[@]}" "$OUTPUT_DIR/"
+cp -av "${images[0]}" "$OUTPUT_DIR/${NAME}_squashfs-sysupgrade.bin"
 manifests=("$IB"/bin/targets/msm89xx/msm8916/*ufi003*.manifest)
-if [ "${#manifests[@]}" -gt 0 ]; then
-	cp -av "${manifests[@]}" "$OUTPUT_DIR/"
+[ "${#manifests[@]}" -le 1 ] || { echo 'Expected at most one UFI003 manifest' >&2; exit 1; }
+if [ "${#manifests[@]}" -eq 1 ]; then
+	cp -av "${manifests[0]}" "$OUTPUT_DIR/${NAME}.manifest"
 fi
 (cd "$OUTPUT_DIR" && sha256sum *sysupgrade.bin > sha256sums)
