@@ -62,13 +62,15 @@ OPKG_CONF_DIR=$pku_dir opkg install jsonfilter sing-box && {
 
 ## 小米路由器
 
-小米原厂固件可从文末的小米依赖仓库下载程序。以下命令将依赖放入 `/data/wing`，并从本项目的 `main` 分支下载 Wing；预编译依赖为 ARM64，使用前须确认固件兼容。
+小米原厂固件可用 [`miwifi/setup.sh`](miwifi/setup.sh) 部署：在 `miwifi/` 目录执行 `./setup.sh <路由器IP> [WING_URL|NO] [SMB_PASS]`，脚本输出需在本机执行的 `ssh`、`scp` 命令；在路由器上执行时输出 `curl` 命令。
+
+手工安装时，以下命令从 `miwifi/wing/` 下载依赖放入 `/data/wing`，并从本项目的 `main` 分支下载 Wing；预编译依赖为 ARM64，使用前须确认固件兼容。
 
 ```sh
 (
     mkdir -p /data/wing || exit 1
     for f in chinadns-ng dns-forwarder ipt2socks libsodium.so.23 libudns.so.0 ss-redir ssr-redir trojan; do
-        curl -fL "https://yonsm.github.io/OponWrt/miwifi/$f" -o "/data/wing/$f" || exit 1
+        curl -fL "https://yonsm.github.io/OponWrt/miwifi/wing/$f" -o "/data/wing/$f" || exit 1
     done
     curl -fL https://yonsm.github.io/OponWrt/wing/usr/bin/wing -o /data/wing/wing || exit 1
     chmod +x /data/wing/wing /data/wing/chinadns-ng /data/wing/dns-forwarder /data/wing/ipt2socks /data/wing/ss-redir /data/wing/ssr-redir /data/wing/trojan
@@ -118,5 +120,5 @@ Linux 需要 Bash。VMess 另需 `jq` 或 `jsonfilter`。按实际需要安装�
 ## 相关链接
 
 - 北大镜像：[OpenWrt](https://mirrors.pku.edu.cn/openwrt/releases/) · [ImmortalWrt](https://mirrors.pku.edu.cn/immortalwrt/releases/)
-- 小米依赖：[miwifi](https://github.com/Yonsm/OponWrt/tree/main/miwifi)
+- 小米脚本与依赖：[miwifi](https://github.com/Yonsm/OponWrt/tree/main/miwifi)
 - 客户端：[sing-box](https://github.com/SagerNet/sing-box/releases) · [Xray](https://github.com/XTLS/Xray-core/releases) · [Shadowsocks Rust](https://github.com/shadowsocks/shadowsocks-rust/releases) · [Trojan](https://github.com/trojan-gfw/trojan/releases) · [Shadowsocks libev](https://github.com/shadowsocks/shadowsocks-libev) · [ShadowsocksR libev](https://github.com/shadowsocksrr/shadowsocksr-libev)
