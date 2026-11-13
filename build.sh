@@ -51,8 +51,9 @@ print(board, subtarget, profile["id"], arch)
 PYEOF
 	) || return 1
 	read -r TARGET_BOARD TARGET_SUBTARGET TARGET_PROFILE PKG_ARCH <<< "$TARGET_INFO"
-	if [[ "${PRESET%%+*}" == *-opboot ]] && [ "$TARGET_PROFILE" != mobipromo_cm520-79f ]; then
-		echo "[build] OpBoot is only supported for mobipromo_cm520-79f" >&2
+	local TARGET_PATCH="$SCRIPT_DIR/patches/$TARGET_PROFILE.sh"
+	if [[ "${PRESET%%+*}" == *-opboot ]] && [ ! -f "$TARGET_PATCH" ]; then
+		echo "[build] OpBoot is not supported for $TARGET_PROFILE" >&2
 		return 1
 	fi
 	resolve_target_config "$PRESET"
@@ -201,12 +202,12 @@ HOOK_EOF
 
 	local ATTEMPT=1
 	EXTRA_IMAGE_NAME=""
-	if [ "$TARGET_PROFILE" = "mobipromo_cm520-79f" ]; then
+	if [ -f "$TARGET_PATCH" ]; then
 		if [ "${OPBOOT:-0}" = "1" ] || [[ "${PRESET%%+*}" == *-opboot ]]; then
-			"$SCRIPT_DIR/extras/cm520.sh" "$WORK_IB" opboot
+			"$TARGET_PATCH" "$WORK_IB" opboot
 			EXTRA_IMAGE_NAME="opboot"
 		else
-			"$SCRIPT_DIR/extras/cm520.sh" "$WORK_IB" restore
+			"$TARGET_PATCH" "$WORK_IB" restore
 		fi
 	fi
 	until make -C "$WORK_IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK_FILES" ${EXTRA_IMAGE_NAME:+EXTRA_IMAGE_NAME="$EXTRA_IMAGE_NAME"}; do
