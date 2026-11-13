@@ -39,8 +39,8 @@ if "ubi.block=0,1" not in dts:
     if re.search(r'\bchosen\s*\{', dts):
         dts = re.sub(r'(\bchosen\s*\{)', lambda m: m.group(1) + "\n\t\t" + bootargs_line, dts, count=1)
     else:
-        assert "soc {" in dts, "未在 DTB 中找到 soc 节点"
-        dts = dts.replace("soc {", "chosen {\n\t\t" + bootargs_line + "\n\t};\n\n\tsoc {", 1)
+        dts, n_root = re.subn(r'\n\};\s*$', "\n\tchosen {\n\t\t" + bootargs_line + "\n\t};\n};\n", dts, count=1)
+        assert n_root == 1, "未能在 DTB 根节点末尾注入 chosen"
 
 dts_path.write_text(dts, encoding="utf-8")
 subprocess.run([dtc_bin, "-q", "-I", "dts", "-O", "dtb", "-o", str(dtb_path), str(dts_path)], check=True)
@@ -62,22 +62,24 @@ fdt_body, n_data = re.subn(r'(\bdata\s*=\s*)(\[[^\]]*\]|<[^>]*>);', lambda m: f"
 assert n_data == 1, "未在 FIT fdt 节点中找到 data 属性"
 
 crc_val = zlib.crc32(new_dtb) & 0xFFFFFFFF
-sha1_bytes = hashlib.sha1(new_dtb).digest()
-sha1_cells = " ".join(f"0x{w:08x}" for w in struct.unpack(">5I", sha1_bytes))
-sha1_hex = " ".join(f"{b:02x}" for b in sha1_bytes)
 
 def patch_hash(m):
     blk = m.group(0)
-    if 'algo = "crc32"' in blk:
-        if re.search(r'value\s*=\s*\[', blk):
-            c_hex = " ".join(f"{b:02x}" for b in struct.pack(">I", crc_val))
-            return re.sub(r'(value\s*=\s*)\[[^\]]*\];', rf'\g<1>[{c_hex}];', blk)
-        return re.sub(r'(value\s*=\s*)<[^>]*>;', rf'\g<1><0x{crc_val:08x}>;', blk)
-    if 'algo = "sha1"' in blk:
-        if re.search(r'value\s*=\s*\[', blk):
-            return re.sub(r'(value\s*=\s*)\[[^\]]*\];', rf'\g<1>[{sha1_hex}];', blk)
-        return re.sub(r'(value\s*=\s*)<[^>]*>;', rf'\g<1><{sha1_cells}>;', blk)
-    return blk
+    m_algo = re.search(r'algo\s*=\s*"([^"]+)"', blk)
+    assert m_algo, f"未知 FIT hash 节点: {blk}"
+    algo = m_algo.group(1)
+    if algo == "crc32":
+        raw = struct.pack(">I", crc_val)
+    elif algo in ("sha1", "sha256", "md5"):
+        raw = getattr(hashlib, algo)(new_dtb).digest()
+    else:
+        raise AssertionError(f"不支持的 FIT hash 算法: {algo}")
+
+    if re.search(r'value\s*=\s*\[', blk):
+        v_hex = " ".join(f"{b:02x}" for b in raw)
+        return re.sub(r'(value\s*=\s*)\[[^\]]*\];', rf'\g<1>[{v_hex}];', blk)
+    v_cells = " ".join(f"0x{w:08x}" for w in struct.unpack(f">{len(raw)//4}I", raw))
+    return re.sub(r'(value\s*=\s*)<[^>]*>;', rf'\g<1><{v_cells}>;', blk)
 
 fdt_body = re.sub(r'\bhash[-@]\d+\s*\{[^}]*\};', patch_hash, fdt_body, flags=re.S)
 itb_dts = itb_dts[:m_fdt.start(2)] + fdt_body + itb_dts[m_fdt.end(2):]
