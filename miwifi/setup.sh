@@ -1,67 +1,61 @@
 #!/bin/sh
-# curl http://yonsm.github.io/DIY/MIWIFI/setup.sh|sh -s -- [HOST] [WING]
+# 在 miwifi/ 目录执行：./setup.sh [HOST] [WING_URL|NO] [SMB_PASS]，输出需在路由器上执行的命令。
 
+[ "$1" = "-h" ] && echo "Usage: $0 [HOST] [WING_URL|NO] [SMB_PASS]" && exit
 
-[ "$1" == "-h" ] && echo "Usage: $0 [HOST] [WING_URL|NO] [SMB_PASS]" && exit
-
-[ -z $1 ] && HOST=192.168.31.1 || HOST=$1
+[ -z "$1" ] && HOST=192.168.31.1 || HOST=$1
 
 cd `dirname $0`
 
-if [ -f /etc/config/miwifi ]; then
-	CMDS="mkdir /data/root"
-else
+# 本机即路由器时不加 ssh/scp 前缀，改用 curl 下载
+[ -f /etc/config/miwifi ] && LOCAL=1 || LOCAL=
+
+if [ -z "$LOCAL" ]; then
 	echo "# RedMi AX6000: https://www.right.com.cn/forum/thread-8253125-1-1.html"
 	echo "# XiaoMi AX7000: https://www.gaicas.com/xiaomi-be7000.html"
 	echo "# XiaoMi BE6500 Pro: https://www.gaicas.com/xiaomi-be6500-pro.html"
 	echo
-	echo  "ssh root@$HOST 'mkdir /data/root'"
-	if [ -f ~/.ssh/authorized_keys ]; then
-		echo  "scp -O ~/.ssh/authorized_keys root@$HOST:/data/root"
-		CMDS="ln -s /data/root/authorized_keys /etc/dropbear/"
-	else
-		CMDS=
-	fi
+	[ -f ~/.ssh/authorized_keys ] && echo "scp -O ~/.ssh/authorized_keys root@$HOST:/data/root"
 fi
 
-# SFTP
-CMDS="$CMDS	mkdir -p /data/other/libexec"
-FILES=other/libexec/sftp-server
+# 仓库目录按原路径部署到 /data/<同路径>
+ADD() {
+	CMDS="$CMDS	mkdir -p /data/$1"
+	for DIR in $(cd "$1" && find . -type d -not -name .DS_Store | sed 's#^\./##'); do
+		[ "$DIR" = "." ] || CMDS="$CMDS	mkdir -p /data/$1/$DIR"
+	done
+	for FILE in $(cd "$1" && find . -type f -not -name .DS_Store | sed 's#^\./##'); do
+		FILES="$FILES $1/$FILE"
+	done
+}
+ADD other
+ADD root
+ADD wing
 
-# ROOT
-for FILE in .profile opkg.sh root.sh; do
-	FILES="$FILES root/$FILE"
-done
+# ROOT + WING 开机执行
 CMDS="$CMDS	uci set firewall.root=include"
 CMDS="$CMDS	uci set firewall.root.type=script"
 CMDS="$CMDS	uci set firewall.root.path=/data/root/root.sh $2 $3"
 CMDS="$CMDS	uci set firewall.root.enabled=1"
 CMDS="$CMDS	uci commit firewall"
 
-# WING
-if [ -f /etc/config/miwifi ]; then
-	CMDS="$CMDS	curl http://yonsm.github.io/DIY/MIWIFI/wing.sh|sh"
-else
-	CMDS="$CMDS	mkdir /data/wing"
-	for FILE in `ls wing|tr " " "?"`
-	do
-		FILE=`echo $FILE|tr "?" " "`
-		FILES="$FILES wing/$FILE"
-	done
+# 首次无 SSH 密钥：生成 dropbear 授权
+if [ -z "$LOCAL" ] && [ -f ~/.ssh/authorized_keys ]; then
+	CMDS="$CMDS	ln -s /data/root/authorized_keys /etc/dropbear/"
 fi
 
 for CMD in `echo "$CMDS"|tr " " "?"`
 do
 	CMD=`echo $CMD|tr "?" " "`
-	if [ -f /etc/config/miwifi ]; then
+	if [ -n "$LOCAL" ]; then
 		echo  $CMD
 	else
 		echo  "ssh root@$HOST '$CMD'"
 	fi
 done
 for FILE in $FILES; do
-	if [ -f /etc/config/miwifi ]; then
-		echo "curl -o /data/$FILE http://yonsm.github.io/DIY/MIWIFI/$FILE"
+	if [ -n "$LOCAL" ]; then
+		echo "curl -fsL -o /data/$FILE https://yonsm.github.io/OponWrt/miwifi/$FILE"
 	else
 		echo  "scp -O $FILE root@$HOST:/data/$FILE"
 	fi

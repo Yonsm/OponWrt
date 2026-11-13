@@ -62,7 +62,7 @@ OPKG_CONF_DIR=$pku_dir opkg install jsonfilter sing-box && {
 
 ## 小米路由器
 
-小米原厂固件可用 [`miwifi/setup.sh`](miwifi/setup.sh) 部署：在 `miwifi/` 目录执行 `./setup.sh <路由器IP> [WING_URL|NO] [SMB_PASS]`，脚本输出需在本机执行的 `ssh`、`scp` 命令；在路由器上执行时输出 `curl` 命令。
+小米原厂固件可用 [`miwifi/setup.sh`](miwifi/setup.sh) 部署：在 `miwifi/` 目录执行 `./setup.sh <路由器IP> [WING_URL|NO] [SMB_PASS]`，脚本输出需在本机执行的 `ssh`、`scp` 命令；在路由器上执行时输出 `curl` 命令。`miwifi/{root,other,wing}` 会按原路径部署到 `/data` 下（root 覆盖、SFTP、XPACK 工具、Wing 依赖），并配置 `firewall.root` 开机执行 `root.sh`。原厂固件的 SSH root 密码可用 [`sn.htm`](miwifi/sn.htm) 输入 SN 离线计算。
 
 手工安装时，以下命令从 `miwifi/wing/` 下载依赖放入 `/data/wing`，并从本项目的 `main` 分支下载 Wing；预编译依赖为 ARM64，使用前须确认固件兼容。
 
