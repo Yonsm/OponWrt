@@ -91,7 +91,9 @@ with open(path, 'w', encoding='utf-8') as f:
     f.write(text)
 PYEOF
 
-VALID_PKGS="-luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman"
+# 目标默认包：chipidea 驱动已内建于内核，kmod-usb-chipidea 仅 ath79 提供；
+# 默认 ip-tiny 与 Wing 所需 ip-full 互斥。
+VALID_PKGS="-luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman -kmod-usb-chipidea -ip-tiny"
 for pkg in $FINAL_PACKAGES; do
 	case "$pkg" in
 	chinadns-ng|ipt2socks|simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|tcping)
