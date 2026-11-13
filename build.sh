@@ -23,6 +23,38 @@ source "$SCRIPT_DIR/packages.conf"
 
 build_single_preset() {
 	local PRESET="$1"
+	[[ "$PRESET" =~ ^[a-zA-Z0-9_.@+-]+$ ]] || { echo "[build] Invalid preset: $PRESET" >&2; return 1; }
+	local DEVICE="${PRESET%%+*}" TARGET_INFO
+	DEVICE="${DEVICE%-opboot}"
+	TARGET_INFO=$(python3 - "$OPENWRT_VER" "$DEVICE" <<'PYEOF'
+import json, sys, urllib.request
+
+version, device = sys.argv[1:]
+query, _, target = device.partition('@')
+if not query:
+    raise SystemExit("[build] Device profile is empty")
+target = target.replace('.', '/')
+base = f"https://downloads.openwrt.org/releases/{version}"
+with urllib.request.urlopen(f"{base}/.overview.json") as response:
+    profiles = json.load(response)["profiles"]
+matches = [p for p in profiles if query.lower() in p["id"].lower() and (not target or p["target"] == target)]
+exact = [p for p in matches if p["id"].lower() == query.lower()]
+matches = exact or matches
+if len(matches) != 1:
+    details = ", ".join(f'{p["id"]}@{p["target"].replace("/", ".")}' for p in matches)
+    raise SystemExit(f"[build] Device '{device}' matched {len(matches)} profiles" + (f": {details}" if details else ""))
+profile = matches[0]
+board, subtarget = profile["target"].split("/")
+with urllib.request.urlopen(f"{base}/targets/{board}/{subtarget}/profiles.json") as response:
+    arch = json.load(response)["arch_packages"]
+print(board, subtarget, profile["id"], arch)
+PYEOF
+	) || return 1
+	read -r TARGET_BOARD TARGET_SUBTARGET TARGET_PROFILE PKG_ARCH <<< "$TARGET_INFO"
+	if [[ "${PRESET%%+*}" == *-opboot ]] && [ "$TARGET_PROFILE" != mobipromo_cm520-79f ]; then
+		echo "[build] OpBoot is only supported for mobipromo_cm520-79f" >&2
+		return 1
+	fi
 	resolve_target_config "$PRESET"
 	echo "[build] $PRESET -> $TARGET_BOARD/$TARGET_SUBTARGET ($TARGET_PROFILE, $PKG_ARCH)"
 
@@ -33,10 +65,10 @@ build_single_preset() {
 	if [[ "$PRESET" != *"+NOWING"* ]]; then
 		cp -a "$SCRIPT_DIR/extras/wing/"* "$WORK_FILES/"
 	fi
-	if [[ "$PRESET" == X64* ]]; then
+	if [ "$TARGET_BOARD/$TARGET_SUBTARGET" = x86/64 ]; then
 		cp -a "$SCRIPT_DIR/extras/x86/"* "$WORK_FILES/"
 	fi
-	if [[ "$PRESET" == X64* ]] || [[ "$PRESET" == *"+SMB4"* ]]; then
+	if [ "$TARGET_BOARD/$TARGET_SUBTARGET" = x86/64 ] || [[ "$PRESET" == *"+SMB4"* ]]; then
 		cp -a "$SCRIPT_DIR/extras/samba4/"* "$WORK_FILES/"
 	fi
 	if [[ "$PRESET" == *"+HASS"* ]]; then
@@ -170,7 +202,7 @@ HOOK_EOF
 	local ATTEMPT=1
 	EXTRA_IMAGE_NAME=""
 	if [ "$TARGET_PROFILE" = "mobipromo_cm520-79f" ]; then
-		if [ "${OPBOOT:-0}" = "1" ] || [[ "$PRESET" == *+OPBOOT* ]]; then
+		if [ "${OPBOOT:-0}" = "1" ] || [[ "${PRESET%%+*}" == *-opboot ]]; then
 			"$SCRIPT_DIR/extras/cm520.sh" "$WORK_IB" opboot
 			EXTRA_IMAGE_NAME="opboot"
 		else
@@ -192,7 +224,7 @@ HOOK_EOF
 }
 
 if [ "$PRESET_ARG" = "ALL" ]; then
-	for p in X64+DOCKER+WIFI CM520 CM520+OPBOOT K2P C5 NEWIFI3 Y1 RMAX6000; do
+	for p in generic@x86.64+DOCKER+WIFI mobipromo_cm520-79f-opboot phicomm_k2p xiaoyu_xy-c5 d-team_newifi-d2 lenovo_newifi-y1 xiaomi_redmi-router-ax6000-stock; do
 		build_single_preset "$p"
 	done
 else

@@ -10,22 +10,19 @@
 * `flash.sh`：局域网 SSH 刷机与升级脚本
 * `wing.md`：[extras/wing.md](extras/wing.md)
 
-## 新增路由器配置
+## 构建固件
 
-1. **查询机型参数**：在 [OpenWrt 官方软件源](https://downloads.openwrt.org/releases/) 对应版本的 `targets/<board>/<subtarget>/profiles.json` 中查出：
-   * `TARGET_BOARD` / `TARGET_SUBTARGET`：目标平台路径（如 `mediatek` / `filogic`）
-   * `TARGET_PROFILE`：`profiles` 下的设备 ID（如 `glinet_gl-mt6000`）
-   * `PKG_ARCH`：文件顶部的 `arch_packages`（如 `aarch64_cortex-a53`，用于匹配 ImmortalWrt 软件源）
-2. **添加预设分支**：在 `packages.conf` 的 `resolve_target_config()` 中新增 `case` 分支（无 USB 接口可加 `USB=0`，有专属驱动可通过 `EXTRA_PKGS` 附加）：
+在 Linux x86_64 上运行 `./build.sh 设备 [OpenWrt版本]`，或在 GitHub Actions 的 **Run workflow** 中输入设备。版本留空时使用最新正式版。脚本从 OpenWrt 官方索引匹配 profile，并自动获取目标平台和软件包架构；无需在代码中登记新设备。
 
 ```bash
-	MT6000*)
-		TARGET_BOARD="mediatek"; TARGET_SUBTARGET="filogic"
-		TARGET_PROFILE="glinet_gl-mt6000"; PKG_ARCH="aarch64_cortex-a53"
-		;;
+./build.sh glinet_gl-mt6000
+./build.sh 'mobipromo_cm520-79f-opboot+DOCKER' 25.12.6
+./build.sh 'generic@x86.64+DOCKER+WIFI'
 ```
 
-3. **构建与刷机**：在 GitHub Actions 的 **Run workflow** 中直接输入新预设名（支持叠加 `+SMB4`、`+NOWING`、`+DOCKER` 等特性后缀）即可打包；如需纳入 `ALL` 批量构建，将其加入 `build.sh` 末尾的循环列表即可。`flash.sh` 会自动读取设备信息匹配固件，无需额外修改。
+设备可填写完整 profile 或能唯一匹配的名称片段。匹配多个设备时，脚本列出候选项；同名 profile 可用 `@平台.子平台` 指定目标。CM520 的 `-opboot` 为专用镜像变体。
+
+支持 `+USB`、`+SMB4`、`+NOWING`、`+DOCKER`、`+HASS` 和 `+WIFI` 后缀；`+WIFI` 目前仅针对 x86/64。未单独配置的设备使用官方默认包和项目基础包，特定设备的额外配置在 `packages.conf` 中维护。构建结果保存在 `output/` 下独立目录中。默认 `ALL` 的设备列表分别位于 `build.sh` 和工作流中。
 
 ## 随身 WiFi (MSM8916) 部署
 
