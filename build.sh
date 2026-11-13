@@ -101,7 +101,7 @@ PYEOF
 	mkdir -p "$WORK_IB/tmp"
 	local NOWING=""
 	[[ "$PRESET" == *"+NOWING"* ]] && NOWING="--nowing"
-	python3 "$SCRIPT_DIR/prepare-imagebuilder.py" "$WORK_IB" "$OPENWRT_SERIES" "$PKG_ARCH" $NOWING
+	python3 "$SCRIPT_DIR/prepare.py" "$WORK_IB" "$OPENWRT_SERIES" "$PKG_ARCH" $NOWING
 
 	if [ "$TARGET_BOARD" = "x86" ]; then
 		sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config"

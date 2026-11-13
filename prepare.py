@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # 准备 ImageBuilder：拉取 Argon 与 Wing 第三方包，允许本地未签名包，并挂入 UI 定制脚本。
-# 用法：prepare-imagebuilder.py <ib> <series> <arch> [--nowing]
+# 用法：prepare.py <ib> <series> <arch> [--nowing]
 
 import json, os, re, sys, urllib.request
 

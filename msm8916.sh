@@ -52,7 +52,7 @@ find "$WORK/files" -name .DS_Store -delete
 
 NOWING=""
 [[ "$PRESET" == *+NOWING ]] && NOWING="--nowing"
-python3 "$SCRIPT_DIR/prepare-imagebuilder.py" "$IB" "$OPENWRT_SERIES" aarch64_generic $NOWING
+python3 "$SCRIPT_DIR/prepare.py" "$IB" "$OPENWRT_SERIES" aarch64_generic $NOWING
 
 # 目标默认包：chipidea 驱动已内建于内核，kmod-usb-chipidea 仅 ath79 提供；
 # 默认 ip-tiny 与 Wing 所需 ip-full 互斥。
