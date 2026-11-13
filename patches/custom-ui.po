@@ -55,7 +55,7 @@ msgid "Dynamic DNS allows that your router can be reached with a fixed hostname 
 msgstr "动态域名允许您的路由器在具有动态变化的 IP 地址时使用固定主机名访问。"
 
 msgid "Aria2"
-msgstr "下载工具"
+msgstr "下载服务"
 
 msgid "Docker"
 msgstr "容器"

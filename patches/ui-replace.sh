@@ -100,7 +100,7 @@ def write_lmo(path: str, entries_by_keyid: dict):
 po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(po_file).items()}
 EXACT = {
     "LED 配置": "灯光配置", "<abbr title=\"发光二极管\">LED</abbr> 配置": "灯光配置",
-    "路由": "路由规则", "防火墙": "防火长城", "进程": "系统进程", "Aria2": "下载工具",
+    "路由": "路由规则", "防火墙": "防火长城", "进程": "系统进程", "Aria2": "下载服务",
     "Docker": "容器", "frp 服务器": "公网穿透", "frp 客户端": "内网穿透",
     "UPnP IGD 和 PCP": "端口映射", "UPnP IGD 和 PCP/NAT-PMP": "端口映射",
     "uHTTPd": "网页服务", "Transmission": "比特传输", "WiFi 计划": "无线计划",
@@ -177,6 +177,7 @@ if [ -f "$M/luci-mod-network.json" ]; then
 		-e 's/"title": "DHCP"/"title": "网址分配"/g' \
 		-e 's/"title": "DNS"/"title": "网络域名"/g' "$M/luci-mod-network.json" && rm -f "$M/luci-mod-network.json.bak"
 fi
+[ -f "$M/luci-app-aria2.json" ] && sed -i.bak 's/"title": "Aria2"/"title": "下载服务"/g' "$M/luci-app-aria2.json" && rm -f "$M/luci-app-aria2.json.bak"
 if [ -f "$M/luci-app-firewall.json" ]; then
 	sed -i.bak 's/"title": "Firewall"/"title": "防火长城"/g' "$M/luci-app-firewall.json" && rm -f "$M/luci-app-firewall.json.bak"
 fi
