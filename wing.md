@@ -62,9 +62,7 @@ OPKG_CONF_DIR=$pku_dir opkg install jsonfilter sing-box && {
 
 ## 小米路由器
 
-小米原厂固件可用 [`miwifi/setup.sh`](miwifi/setup.sh) 部署：在 `miwifi/` 目录执行 `./setup.sh <路由器IP> [WING_URL|NO] [SMB_PASS]`，脚本输出需在本机执行的 `ssh`、`scp` 命令；在路由器上执行时输出 `curl` 命令。`miwifi/{root,wing}` 会按原路径部署到 `/data` 下，随后由 [`miwifi/root/opkg.sh`](miwifi/root/opkg.sh) 配置 ImmortalWrt feed，把 `frpc`、`frps`、`htop`、`iperf3`、`jq`、`screen`、`socat`、`sqlite3`、`mosquitto` 与 `openssh-sftp-server` 装到 `/data/other/xpkg`，用 `wing update` 生成 `/data/wing/gfwlist.conf`，并配置 `firewall.root` 开机执行 `root.sh`。原厂固件的 SSH root 密码可用 [`sn.htm`](miwifi/sn.htm) 输入 SN 离线计算。
-
-手工安装时，以下命令从 `miwifi/wing/` 下载依赖放入 `/data/wing`，并从本项目的 `main` 分支下载 Wing；预编译依赖为 ARM64，使用前须确认固件兼容。
+小米原厂固件所需的预编译依赖在 [`miwifi/wing/`](miwifi/wing)。以下命令将依赖放入 `/data/wing`，并从本项目的 `main` 分支下载 Wing；预编译依赖为 ARM64，使用前须确认固件兼容。
 
 ```sh
 (
@@ -120,5 +118,5 @@ Linux 需要 Bash。VMess 另需 `jq` 或 `jsonfilter`。按实际需要安装�
 ## 相关链接
 
 - 北大镜像：[OpenWrt](https://mirrors.pku.edu.cn/openwrt/releases/) · [ImmortalWrt](https://mirrors.pku.edu.cn/immortalwrt/releases/)
-- 小米脚本与依赖：[miwifi](https://github.com/Yonsm/OponWrt/tree/main/miwifi)
+- 小米依赖：[miwifi/wing](https://github.com/Yonsm/OponWrt/tree/main/miwifi/wing)
 - 客户端：[sing-box](https://github.com/SagerNet/sing-box/releases) · [Xray](https://github.com/XTLS/Xray-core/releases) · [Shadowsocks Rust](https://github.com/shadowsocks/shadowsocks-rust/releases) · [Trojan](https://github.com/trojan-gfw/trojan/releases) · [Shadowsocks libev](https://github.com/shadowsocks/shadowsocks-libev) · [ShadowsocksR libev](https://github.com/shadowsocksrr/shadowsocksr-libev)
