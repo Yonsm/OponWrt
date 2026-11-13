@@ -113,7 +113,7 @@ for pkg in $FINAL_PACKAGES; do
 done
 make -C "$IB" image FORCE=1 PROFILE="$TARGET_PROFILE" PACKAGES="$VALID_PKGS" FILES="$WORK/files"
 mkdir -p "$SCRIPT_DIR/output"
-OUTPUT_DIR="$(mktemp -d "$SCRIPT_DIR/output/${PRESET}-msm8916-XXXXXXXX")"
+OUTPUT_DIR="$(mktemp -d "$SCRIPT_DIR/output/OponWrt_msm8916_${PRESET}-XXXXXXXX")"
 shopt -s nullglob
 images=("$IB"/bin/targets/msm89xx/msm8916/*ufi003*sysupgrade.bin)
 [ "${#images[@]}" -eq 1 ] || { echo 'Expected one UFI003 sysupgrade image' >&2; exit 1; }

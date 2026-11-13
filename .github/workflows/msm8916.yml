@@ -83,7 +83,7 @@ jobs:
       - name: 上传固件
         uses: actions/upload-artifact@v7
         with:
-          name: MSM8916_${{ inputs.preset }}
+          name: OponWrt_msm8916_${{ inputs.preset }}
           path: |
             output/*/*sysupgrade.bin
             output/*/*.manifest
