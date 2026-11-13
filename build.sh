@@ -26,7 +26,7 @@ build_single_preset() {
 	resolve_target_config "$PRESET"
 	echo "[build] $PRESET -> $TARGET_BOARD/$TARGET_SUBTARGET ($TARGET_PROFILE, $PKG_ARCH)"
 
-	local WORK_IB="/tmp/openwrt-ib-${TARGET_BOARD}-${TARGET_SUBTARGET}"
+	local WORK_IB="/tmp/openwrt-ib-${OPENWRT_VER}-${TARGET_BOARD}-${TARGET_SUBTARGET}-${PRESET}"
 	local WORK_FILES="/tmp/openwrt-files-${PRESET}"
 	rm -rf "$WORK_FILES"
 	cp -a "$SCRIPT_DIR/files" "$WORK_FILES"
@@ -45,7 +45,7 @@ build_single_preset() {
 	find "$WORK_FILES" -name ".DS_Store" -delete
 
 	python3 - "$OPENWRT_VER" "$OPENWRT_SERIES" "$TARGET_BOARD" "$TARGET_SUBTARGET" "$PKG_ARCH" "$WORK_IB" <<'PYEOF'
-import os, re, sys, json, subprocess, urllib.request
+import os, re, sys, json, subprocess, tempfile, urllib.request
 
 ver, series, board, subtarget, pkg_arch, work_ib = sys.argv[1:7]
 base_url = f"https://downloads.openwrt.org/releases/{ver}/targets/{board}/{subtarget}"
@@ -55,12 +55,14 @@ if not os.path.isdir(work_ib):
     m = re.search(rf"(openwrt-imagebuilder-{re.escape(ver)}-{re.escape(board)}-{re.escape(subtarget)}\.Linux-x86_64\.tar\.(?:zst|xz))", sums)
     if not m:
         raise SystemExit(f"ImageBuilder not found at {base_url}")
-    ib_path = f"/tmp/{m.group(1)}"
-    print(f"[build] Downloading {base_url}/{m.group(1)}")
-    urllib.request.urlretrieve(f"{base_url}/{m.group(1)}", ib_path)
-    os.makedirs(work_ib, exist_ok=True)
-    subprocess.run(["tar", "-xf", ib_path, "-C", work_ib, "--strip-components=1"], check=True)
-    os.remove(ib_path)
+    with tempfile.TemporaryDirectory(prefix="openwrt-ib-", dir="/tmp") as tmp:
+        ib_path = os.path.join(tmp, m.group(1))
+        extracted = os.path.join(tmp, "imagebuilder")
+        print(f"[build] Downloading {base_url}/{m.group(1)}")
+        urllib.request.urlretrieve(f"{base_url}/{m.group(1)}", ib_path)
+        os.mkdir(extracted)
+        subprocess.run(["tar", "-xf", ib_path, "-C", extracted, "--strip-components=1"], check=True)
+        os.rename(extracted, work_ib)
 
 pkg_ext = "apk" if os.path.exists(os.path.join(work_ib, "repositories")) else "ipk"
 pkg_dir = os.path.join(work_ib, "packages")
@@ -144,7 +146,7 @@ HOOK_EOF
 		sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${ROOTFS_PARTSIZE}/" "$WORK_IB/.config"
 	fi
 
-	# 过滤掉源里确实没有的第三方旧包（如 25.12 移除的 shadowsocksr-libev-ssr-redir），避免中断构建
+	# Wing 核心依赖必须存在；旧协议客户端允许缺省
 	local VALID_PKGS=""
 	for pkg in $FINAL_PACKAGES; do
 		case "$pkg" in
@@ -152,6 +154,10 @@ HOOK_EOF
 			if ls "$WORK_IB/packages/${pkg}"* >/dev/null 2>&1; then
 				VALID_PKGS="$VALID_PKGS $pkg"
 			else
+				if [ "$pkg" = chinadns-ng ] || [ "$pkg" = ipt2socks ]; then
+					echo "[build] Missing required Wing package: $pkg" >&2
+					return 1
+				fi
 				echo "[build] Skip unavailable third-party package: $pkg"
 			fi
 			;;
@@ -179,12 +185,14 @@ HOOK_EOF
 	done
 
 	mkdir -p "$SCRIPT_DIR/output"
-	cp -av "$WORK_IB/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"/* "$SCRIPT_DIR/output/"
+	local OUTPUT_DIR
+	OUTPUT_DIR=$(mktemp -d "$SCRIPT_DIR/output/${PRESET}-${OPENWRT_VER}-XXXXXXXX")
+	cp -av "$WORK_IB/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"/* "$OUTPUT_DIR/"
 	rm -rf "$WORK_FILES"
 }
 
 if [ "$PRESET_ARG" = "ALL" ]; then
-	for p in X64+DOCKER+WIFI CM520 K2P C5 NEWIFI3 Y1 RMAX6000; do
+	for p in X64+DOCKER+WIFI CM520 CM520+OPBOOT K2P C5 NEWIFI3 Y1 RMAX6000; do
 		build_single_preset "$p"
 	done
 else
