@@ -17,6 +17,12 @@ IB="$WORK/ib"
 [ -f "$IB/Makefile" ] && [ -f "$IB/.config" ] || { echo 'Unsupported ImageBuilder' >&2; exit 1; }
 grep -q '^CONFIG_TARGET_msm89xx_msm8916=y$' "$IB/.config" || { echo 'ImageBuilder target is not msm89xx/msm8916' >&2; exit 1; }
 grep -q '^CONFIG_USE_APK=y$' "$IB/.config" || { echo 'ImageBuilder must use APK packages' >&2; exit 1; }
+
+# firmware.zip 需要交叉工具链编译 lk2nd/qhypstub，而 ImageBuilder 不带工具链；
+# 本流程只交付 sysupgrade 镜像。
+IMAGE_MAKEFILE="$IB/target/linux/msm89xx/image/msm8916.mk"
+sed -i 's/ firmware\.zip$//' "$IMAGE_MAKEFILE"
+grep -q '[[:space:]]ARTIFACTS.*firmware\.zip' "$IMAGE_MAKEFILE" && { echo 'Failed to drop firmware.zip artifact' >&2; exit 1; }
 IB_VERSION=$(sed -n 's/^CONFIG_VERSION_NUMBER="\([0-9][0-9.]*\).*"$/\1/p' "$IB/.config")
 OPENWRT_VER="${OPENWRT_VERSION:-$IB_VERSION}"
 OPENWRT_VER="${OPENWRT_VER#v}"
