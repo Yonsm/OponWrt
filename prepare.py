@@ -16,7 +16,10 @@ def get(url):
 
 
 def save(pkg_dir, name, data):
-    with open(os.path.join(pkg_dir, name), 'wb') as f:
+    path = os.path.join(pkg_dir, name)
+    if os.path.exists(path):
+        return
+    with open(path, 'wb') as f:
         f.write(data)
     print('[ib] ' + name)
 
@@ -61,7 +64,7 @@ def patch_makefile(ib):
         text = f.read()
     text = re.sub(r'(apk add )(?!\s*--allow-untrusted)', r'\1--allow-untrusted ', text)
     text = re.sub(r'(\$\(APK\) add )(?!\s*--allow-untrusted)', r'\1--allow-untrusted ', text)
-    if HOOK not in text:
+    if 'ui-replace.sh' not in text:
         text, count = re.subn(r'^build_image:[^\n]*\n', lambda m: m.group(0) + '\t' + HOOK + ' $(TARGET_DIR)\n', text, count=1, flags=re.M)
         if count != 1:
             raise SystemExit('ImageBuilder build_image target not found')
