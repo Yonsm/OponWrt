@@ -31,6 +31,14 @@ ADD() {
 ADD root
 ADD wing
 
+# 文件推送后在设备上安装可选工具（feed 由 root/opkg.sh 配置）
+POST="/data/root/opkg.sh"
+POST="$POST	opkg update"
+POST="$POST	opkg -d xpkg --force-depends install frpc frps htop iperf3 jq screen socat sqlite3-cli mosquitto-nossl openssh-sftp-server"
+POST="$POST	mkdir -p /data/other/libexec"
+POST="$POST	ln -sf /data/other/xpkg/usr/libexec/sftp-server /data/other/libexec/sftp-server"
+POST="$POST	/data/wing/wing update /data/wing/gfwlist.conf"
+
 # ROOT + WING 开机执行
 CMDS="$CMDS	uci set firewall.root=include"
 CMDS="$CMDS	uci set firewall.root.type=script"
@@ -43,15 +51,18 @@ if [ -z "$LOCAL" ] && [ -f ~/.ssh/authorized_keys ]; then
 	CMDS="$CMDS	ln -s /data/root/authorized_keys /etc/dropbear/"
 fi
 
-for CMD in `echo "$CMDS"|tr " " "?"`
-do
-	CMD=`echo $CMD|tr "?" " "`
-	if [ -n "$LOCAL" ]; then
-		echo  $CMD
-	else
-		echo  "ssh root@$HOST '$CMD'"
-	fi
-done
+SHOW() {
+	for CMD in `echo "$1"|tr " " "?"`
+	do
+		CMD=`echo $CMD|tr "?" " "`
+		if [ -n "$LOCAL" ]; then
+			echo  $CMD
+		else
+			echo  "ssh root@$HOST '$CMD'"
+		fi
+	done
+}
+SHOW "$CMDS"
 for FILE in $FILES; do
 	if [ -n "$LOCAL" ]; then
 		echo "curl -fsL -o /data/$FILE https://yonsm.github.io/OponWrt/miwifi/$FILE"
@@ -59,3 +70,4 @@ for FILE in $FILES; do
 		echo  "scp -O $FILE root@$HOST:/data/$FILE"
 	fi
 done
+SHOW "$POST"

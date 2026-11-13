@@ -1,5 +1,8 @@
 #!/bin/sh
 
+export PATH=/data/other/xpkg/usr/sbin:/data/other/xpkg/usr/bin:$PATH
+export LD_LIBRARY_PATH=/data/other/xpkg/usr/lib:$LD_LIBRARY_PATH
+
 # MQTT
 [ -f /data/other/xpkg/etc/mosquitto/mosquitto.conf ] && /data/other/xpkg/usr/sbin/mosquitto -d -c /data/other/xpkg/etc/mosquitto/mosquitto.conf &
 
