@@ -28,7 +28,6 @@ ADD() {
 		FILES="$FILES $1/$FILE"
 	done
 }
-ADD other
 ADD root
 ADD wing
 
