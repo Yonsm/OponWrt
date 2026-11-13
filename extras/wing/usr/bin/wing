@@ -1,6 +1,8 @@
 #!/bin/sh
+
 # WING_URL=
 # _PROT=socks5; _USER=; _PASS=; _HOST=192.168.1.8; _PORT=; _PATH=; _ARGS=; _HASH=
+
 if [ -f /etc/config/miwifi ]; then
 	CDIR=/data/wing
 	_MODE=ROUTER
@@ -40,8 +42,8 @@ fi
 
 log() {
 	case $1 in
-		0|1) echo "$2";;
-		2|3) echo "$2" >> /tmp/wing.log;;
+	0|1) echo "$2";;
+	2|3) echo "$2" >> /tmp/wing.log;;
 	esac
 }
 
@@ -52,7 +54,7 @@ usage() {
 	echo
 	echo "$0 [-v[0-5]] <URL>"
 	echo
-	echo "URL begins with ss/ssr/trojan/socks5, you can copy it from Shadowrocket"
+	echo "URL begins with ss/ssr/trojan/vmess/vless/hy2/tuic/socks5, you can copy it from Shadowrocket"
 	echo
 	exit 1
 }
@@ -82,7 +84,6 @@ dns() {
 	else
 		dns-forwarder -p 5354 &
 	fi
-
 	if [ -z "$LINE" ]; then
 		if [ "${_GFW_LIST##*.}" = txt ]; then
 			local GFW_CONF="${_GFW_LIST%.txt}.conf"
@@ -96,15 +97,14 @@ dns() {
 				fi
 			fi
 			_GFW_LIST="$GFW_CONF"
-			[ "$_OS" = OPENWRT ] && ! grep -Fq "$_GFW_LIST" /etc/init.d/dnsmasq && sed -i "s#procd_add_jail_mount /etc/passwd#procd_add_jail_mount $_GFW_LIST /etc/passwd#" /etc/init.d/dnsmasq
+			[ $_OS = OPENWRT ] && ! grep -Fq "$_GFW_LIST" /etc/init.d/dnsmasq && sed -i "s#procd_add_jail_mount /etc/passwd#procd_add_jail_mount $_GFW_LIST /etc/passwd#" /etc/init.d/dnsmasq
 		fi
 		if [ "$_NFT" = 1 ] && grep -q '^ipset=/' "$_GFW_LIST" 2>/dev/null; then
-			sed -i 's#^ipset=/\(.*\)/gfwlist$#nftset=/\1/4#inet#wing#gfwlist#' "$_GFW_LIST"
+			sed -i 's|^ipset=/\(.*\)/gfwlist$|nftset=/\1/4#inet#wing#gfwlist|' "$_GFW_LIST"
 		elif [ "$_NFT" != 1 ] && grep -q '^nftset=/' "$_GFW_LIST" 2>/dev/null; then
-			sed -i 's#^nftset=/\(.*\)/4#inet#wing#gfwlist$#ipset=/\1/gfwlist#' "$_GFW_LIST"
+			sed -i 's|^nftset=/\(.*\)/4#inet#wing#gfwlist$|ipset=/\1/gfwlist|' "$_GFW_LIST"
 		fi
 	fi
-
 	echo "${LINE:-conf-file=$_GFW_LIST}" >> "$CONF"
 	/etc/init.d/dnsmasq restart
 }
@@ -120,17 +120,17 @@ update() {
 	[ ! -z "$1" ] && _GFW_LIST="$1"
 	_FMT=${_GFW_LIST##*.}
 	_GFW_TMP=$(mktemp /tmp/gfwlist.XXXXXX) || return 1
-
 	if ! curl -fSs --connect-timeout 10 --max-time 60 -o $_GFW_TMP https://yonsm.github.io/OponWrt/extras/wing/etc/gfwlist.txt; then
-		echo "githubusercontent.com" > $_GFW_TMP
-		echo "yonsm.github.io" >> $_GFW_TMP
+		printf 'githubusercontent.com\nyonsm.github.io\n' > $_GFW_TMP
 		echo "Update gfwlist failed! You should run wing update $_GFW_LIST again."
 	fi
+
 	local TARGET=$_GFW_LIST.tmp SAVE="mv -f"
 	if [ $_OS = MACOS -a $_FMT = pac ]; then
 		TARGET=$(mktemp /tmp/gfwlist.pac.XXXXXX) || { rm $_GFW_TMP; return 1; }
 		SAVE=install_pac
 	fi
+
 	if [ $_FMT = conf ]; then
 		if [ "$_NFT" = 1 ]; then
 			(sed -e 's_^_server=/_' -e 's_$_/127.0.0.1#5354_' $_GFW_TMP &&
@@ -148,11 +148,13 @@ update() {
 	else
 		cat $_GFW_TMP > $TARGET
 	fi
+
 	if [ $? != 0 ] || ! $SAVE $TARGET $_GFW_LIST; then
 		rm -f $TARGET $_GFW_TMP
 		return 1
 	fi
 	rm -f $TARGET $_GFW_TMP
+
 	if [ $_MODE = ROUTER -a "$_GFW_LIST" = "$ACTIVE_LIST" ]; then
 		local CONF=$_DNSMASQ_CONF
 		[ -d "$CONF" ] && CONF=$CONF/wing.conf
@@ -163,35 +165,17 @@ update() {
 
 split_str() {
 	case $4 in
-	"")
-		export $1=
-		export $2=
-		;;
-	*"$3"*)
-		export $1=${4%%"$3"*}
-		export $2=${4#*"$3"}
-		;;
-	*)
-		export $1="$4"
-		export $2=
-		;;
+	"") export $1=; export $2= ;;
+	*"$3"*) export "$1=${4%%"$3"*}"; export "$2=${4#*"$3"}" ;;
+	*) export $1="$4"; export $2= ;;
 	esac
 }
 
 rsplit_str() {
 	case $4 in
-	"")
-		export $1=
-		export $2=
-		;;
-	*"$3"*)
-		export $1=${4%"$3"*}
-		export $2=${4##*"$3"}
-		;;
-	*)
-		export $1=
-		export $2="$4"
-		;;
+	"") export $1=; export $2= ;;
+	*"$3"*) export "$1=${4%"$3"*}"; export "$2=${4##*"$3"}" ;;
+	*) export $1=; export $2="$4" ;;
 	esac
 }
 
@@ -199,28 +183,29 @@ parse_query() {
 	local IFS_BAK=$IFS
 	IFS=\&
 	for ITEM in $1; do
-		split_str KEY VAL = $ITEM
-		export _$KEY=$VAL
-		# echo "_$KEY=$VAL"
+		split_str KEY VAL = "$ITEM"
+		[ "$KEY" = obfs-password ] && KEY=obfs_password
+		export "_$KEY=$VAL"
 	done
 	IFS=$IFS_BAK
 }
 
 parse_uri() {
-	split_str "_TEXT" _HASH \# $1
+	split_str "_TEXT" _HASH \# "$1"
 	split_str _SERV_PATH _ARGS \? "$_TEXT"
 	parse_query "$_ARGS"
 	split_str _SERV _PATH / "$_SERV_PATH"
 	rsplit_str _USER_PASS _HOST_PORT @ "$_SERV"
-	split_str  _USER _PASS : "$_USER_PASS"
+	split_str '_USER' _PASS : "$_USER_PASS"
 	split_str _HOST _PORT : "$_HOST_PORT"
 }
 
 parse_url() {
 	split_str _PROT _TEXT : "$1" R
 	case $_TEXT in
-		//*) _TEXT="${_TEXT:2}"
+	//*) _TEXT="${_TEXT:2}" ;;
 	esac
+	[ $_PROT = vmess ] && { _VMESS=${_TEXT%%\#*}; return; }
 	parse_uri "$_TEXT"
 }
 
@@ -237,14 +222,10 @@ make_url() {
 decode_b64() {
 	local CNT=${#1}
 	local REM=$(( $CNT % 4 ))
-	if [ $REM -eq 1 ]; then
-		local TEXT=${1}===
-	elif [ $REM -eq 2 ]; then
-		local TEXT=${1}==
-	elif [ $REM -eq 3 ]; then
-		local TEXT=${1}=
-	else
-		local TEXT=$1
+	if [ $REM -eq 1 ]; then local TEXT=${1}===
+	elif [ $REM -eq 2 ]; then local TEXT=${1}==
+	elif [ $REM -eq 3 ]; then local TEXT=${1}=
+	else local TEXT=$1
 	fi
 	echo $TEXT | base64 -d
 }
@@ -252,7 +233,6 @@ decode_b64() {
 prepare() {
 	[ $_MODE = SERVICE ] && [ "$WING_PAC" != "1" ] && return 0
 	local IP=${1:-127.0.0.1} PORT=${2:-1080}
-
 	if [ ! -f $_GFW_LIST ]; then
 		update "$_GFW_LIST" "$IP" "$PORT"
 		[ $_OS = MACOS ] && [ "$WING_PAC" = "1" ] && sudo apachectl restart
@@ -294,20 +274,18 @@ inject() {
 	elif [ $_OS = MACOS ]; then
 		if [ -z "$WING_NETWORK" ]; then
 			local SDEV=`route -n get default 2> /dev/null | awk '/interface:/ {print $2; exit}'`
-			WING_NETWORK=`networksetup -listnetworkserviceorder | awk -v dev="$SDEV" '
-				/^\([0-9]+\) / { name = $0; sub(/^\([0-9]+\) /, "", name) }
-				/Device: / {
-					device = $0; sub(/^.*Device: /, "", device); sub(/\).*$/, "", device)
-					if (device == dev && name !~ /^\*/) { print name; exit }
-				}'`
-
+			WING_NETWORK=`networksetup -listnetworkserviceorder | awk -v dev="$SDEV" \
+			 '/^\([0-9]+\) / { name = $0; sub(/^\([0-9]+\) /, "", name) }
+			  /Device: / {
+			      device = $0; sub(/^.*Device: /, "", device); sub(/\).*$/, "", device)
+			      if (device == dev && name !~ /^\*/) { print name; exit }
+			  }'`
 			[ -z "$WING_NETWORK" ] && echo "Could not find valid network" && exit 2
 		fi
-
 		if [ $1 == -C ]; then
 			[ "$WING_PAC" = "1" ] &&
-				networksetup -setautoproxystate "$WING_NETWORK" on ||
-				networksetup -setsocksfirewallproxystate "$WING_NETWORK" on
+			 networksetup -setautoproxystate "$WING_NETWORK" on ||
+			 networksetup -setsocksfirewallproxystate "$WING_NETWORK" on
 			return 0
 		elif [ $1 == -D ]; then
 			networksetup -setautoproxystate "$WING_NETWORK" off
@@ -316,8 +294,8 @@ inject() {
 			echo "Local Network: $WING_NETWORK"
 			echo "export ALL_PROXY=socks5://$2:$3"
 			[ "$WING_PAC" = "1" ] &&
-				networksetup setautoproxyurl "$WING_NETWORK" http://127.0.0.1/gfwlist.pac ||
-				networksetup setsocksfirewallproxy "$WING_NETWORK" $2 $3
+			 networksetup setautoproxyurl "$WING_NETWORK" http://127.0.0.1/gfwlist.pac ||
+			 networksetup setsocksfirewallproxy "$WING_NETWORK" $2 $3
 		fi
 	elif [ $_OS = LINUX ]; then
 		case $1 in
@@ -333,27 +311,19 @@ inject() {
 
 proxy() {
 	prepare "$3" "$4"
-
 	if [ $_MODE = ROUTER ]; then
 		ulimit -n 65536
-
-		# ipt2socks
 		case $2 in
 		*socks5)
 			local IPT2SOCKS_CMD="ipt2socks -s $3 -p $4 -b 0.0.0.0 -l 1088 -T -4 -R -j `cat /proc/cpuinfo|grep processor|wc -l`"
-			if [ $1 -ge 4 ]; then
-				$IPT2SOCKS_CMD &
-			elif [ $1 -ge 2 ]; then
-				nohup $IPT2SOCKS_CMD &> /tmp/ipt2socks.log &
-			elif [ $2 != socks5 ]; then
-				nohup $IPT2SOCKS_CMD -v &> /tmp/ipt2socks.log &
-			else
-				$IPT2SOCKS_CMD -v &
+			if [ $1 -ge 4 ]; then $IPT2SOCKS_CMD &
+			elif [ $1 -ge 2 ]; then nohup $IPT2SOCKS_CMD > /tmp/ipt2socks.log 2>&1 &
+			elif [ $2 != socks5 ]; then nohup $IPT2SOCKS_CMD -v > /tmp/ipt2socks.log 2>&1 &
+			else $IPT2SOCKS_CMD -v &
 			fi
 			;;
 		esac
 
-		# ipset/nftset for DNS & Telegram
 		if [ "$_NFT" = 1 ]; then
 			nft add table inet wing
 			nft add set inet wing gfwlist '{ type ipv4_addr; flags interval; }'
@@ -366,55 +336,120 @@ proxy() {
 			ipset add gfwlist 149.154.165.96
 			ipset add gfwlist 149.154.167.151
 		fi
-		#ipset add gfwlist 91.108.56.0/22
-		#ipset add gfwlist 91.108.4.0/22
-		#ipset add gfwlist 109.239.140.0/24
-		#ipset add gfwlist 149.154.160.0/20
-
 		dns on
 	fi
-
 	inject -A $3 $4
 }
 
 resolve() {
 	[ $_MODE = SERVICE ] && return
-	echo $_HOST | grep -qv '[^0-9.]' && return
-
-	CNT=0
+	case $_HOST in *[!0-9.]*) ;; *) return;; esac
+	local CNT=0
 	while [ $CNT -le 30 ]; do
 		local IP=`nslookup $_HOST | awk -F": " '/^Address/ {if (NR>4){print $2;exit 1}}' | cut -d' ' -f 1`
 		log $1 "Resolve $_HOST=>$IP"
 		case $IP in
-		192.168.*|127.0.*|"")
-			;;
-		*)
-			#_HOST=$IP
-			return
-			;;
+		192.168.*|127.0.*|"") ;;
+		*) return ;;
 		esac
 		sleep 5
 		let CNT++
 	done
 }
 
-ssxcmd() {
+json_field() {
+	if type jsonfilter >/dev/null 2>&1; then
+		jsonfilter -s "$1" -e "@.$2"
+	else
+		printf '%s' "$1" | jq -er --arg key "$2" '.[$key] // empty'
+	fi
+}
+
+url_decode() {
+	printf '%b' "$(printf '%s' "$1" | sed 's/%/\\x/g')"
+}
+
+json_string() {
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | awk 'BEGIN { ORS="" } NR>1 { printf "\\n" } { gsub(/\r/, "\\r"); gsub(/\t/, "\\t"); printf "%s", $0 }'
+}
+
+core_xray() {
+	case $PROTOCOL in vmess|vless) ;; *) return 1;; esac
+	type xray >/dev/null 2>&1 || return 1
+	local IN=socks SECURITY= TRANSPORT= USER_CONFIG="\"encryption\":\"none\",\"flow\":\"$(json_string "$_flow")\""
+	[ $PROTOCOL = vmess ] && USER_CONFIG="\"alterId\":${_aid:-0},\"security\":\"$(json_string "${_scy:-auto}")\""
+	[ $RUN_MODE = ROUTER-redir ] && IN=dokodemo-door
+	case $_security in
+	tls) SECURITY=",\"tlsSettings\":{\"serverName\":\"$SNI\"}" ;;
+	reality) SECURITY=",\"realitySettings\":{\"serverName\":\"$SNI\",\"publicKey\":\"$(json_string "$_pbk")\",\"shortId\":\"$(json_string "$_sid")\",\"fingerprint\":\"$(json_string "${_fp:-chrome}")\"}" ;;
+	esac
+	case $_type in
+	ws) TRANSPORT=",\"wsSettings\":{\"path\":\"$PATH_VALUE\",\"headers\":{\"Host\":\"$HOST_VALUE\"}}" ;;
+	grpc) TRANSPORT=",\"grpcSettings\":{\"serviceName\":\"$(json_string "$(url_decode "$_serviceName")")\"}" ;;
+	httpupgrade) TRANSPORT=",\"httpupgradeSettings\":{\"path\":\"$PATH_VALUE\",\"host\":\"$HOST_VALUE\"}" ;;
+	esac
+	printf '%s\n' "{\"inbounds\":[{\"listen\":\"$IN_HOST\",\"port\":$IN_PORT,\"protocol\":\"$IN\",\"settings\":{\"network\":\"tcp\",\"followRedirect\":true}}],\"outbounds\":[{\"protocol\":\"$PROTOCOL\",\"settings\":{\"vnext\":[{\"address\":\"$HOST\",\"port\":$PORT,\"users\":[{\"id\":\"$USER\",$USER_CONFIG}]}]},\"streamSettings\":{\"network\":\"${_type:-tcp}\",\"security\":\"${_security:-none}\"$SECURITY$TRANSPORT}}]}" > /tmp/wing-modern.json
+	xray run -test -config /tmp/wing-modern.json || return 1
+	XCMD="xray run -config /tmp/wing-modern.json"
+}
+
+core_singbox() {
+	type sing-box >/dev/null 2>&1 || return 1
+	local IN=mixed EXTRA TLS= TRANSPORT=
+	[ $RUN_MODE = ROUTER-redir ] && IN=redirect
+	case $PROTOCOL in
+	vmess) EXTRA="\"uuid\":\"$USER\",\"alter_id\":${_aid:-0},\"security\":\"$(json_string "${_scy:-auto}")\"" ;;
+	vless) EXTRA="\"uuid\":\"$USER\",\"flow\":\"$(json_string "$_flow")\"" ;;
+	hysteria2)
+		EXTRA="\"password\":\"$USER\""
+		[ "$_obfs" = salamander ] && EXTRA="$EXTRA,\"obfs\":{\"type\":\"salamander\",\"password\":\"$(json_string "$(url_decode "$_obfs_password")")\"}"
+		;;
+	tuic) EXTRA="\"uuid\":\"$USER\",\"password\":\"$PASS\"" ;;
+	esac
+	if { [ $PROTOCOL != vless ] && [ $PROTOCOL != vmess ]; } || [ "${_security:-none}" != none ]; then
+		TLS=",\"tls\":{\"enabled\":true,\"server_name\":\"$SNI\",\"insecure\":true"
+		[ "$_security" = reality ] && TLS="$TLS,\"utls\":{\"enabled\":true,\"fingerprint\":\"$(json_string "${_fp:-chrome}")\"},\"reality\":{\"enabled\":true,\"public_key\":\"$(json_string "$_pbk")\",\"short_id\":\"$(json_string "$_sid")\"}"
+		TLS="$TLS}"
+	fi
+	case $_type in
+	ws|httpupgrade) { [ $PROTOCOL = vless ] || [ $PROTOCOL = vmess ]; } && TRANSPORT=",\"transport\":{\"type\":\"$_type\",\"path\":\"$PATH_VALUE\",\"headers\":{\"Host\":\"$HOST_VALUE\"}}" ;;
+	grpc) { [ $PROTOCOL = vless ] || [ $PROTOCOL = vmess ]; } && TRANSPORT=",\"transport\":{\"type\":\"grpc\",\"service_name\":\"$(json_string "$(url_decode "$_serviceName")")\"}" ;;
+	esac
+	printf '%s\n' "{\"inbounds\":[{\"type\":\"$IN\",\"listen\":\"$IN_HOST\",\"listen_port\":$IN_PORT}],\"outbounds\":[{\"type\":\"$PROTOCOL\",\"server\":\"$HOST\",\"server_port\":$PORT,$EXTRA$TLS$TRANSPORT}]}" > /tmp/wing-modern.json
+	sing-box check -c /tmp/wing-modern.json || return 1
+	XCMD="sing-box run -c /tmp/wing-modern.json"
+}
+
+core_ssx() {
 	resolve $1
 	[ -z $_PORT ] && _PORT=443
-	if [ $RUN_MODE = ROUTER-redir ]; then
-		local RUN_TYPE=redir
-		local LOCAL_PORT=1088
-	else
-		local RUN_TYPE=local
-		local LOCAL_PORT=1080
-		if type ssr-client >/dev/null 2>&1; then
-			echo "{\"password\":\"${_PASS//%/\\x}\",\"method\":\"$_USER\",\"protocol\":\"$_PATH\",\"protocol_param\":\"$_protoparam\",\"obfs\":\"$_HASH\",\"obfs_param\":\"$_obfsparam\",\"client_settings\":{\"server\":\"$_HOST\",\"server_port\":$_PORT,\"listen_address\":\"0.0.0.0\",\"listen_port\":$LOCAL_PORT}}" > /tmp/ssr.conf
-			XCMD="ssr-client -c /tmp/ssr.conf"
-			return
-		fi
+	local RUN_TYPE=local LOCAL_PORT=1080
+	[ $RUN_MODE = ROUTER-redir ] && { RUN_TYPE=redir; LOCAL_PORT=1088; }
+	if [ $RUN_TYPE = local ] && type ssr-client >/dev/null 2>&1 &&
+	   { [ $2 = ssr ] || { ! type sslocal >/dev/null 2>&1 && ! type ss-local >/dev/null 2>&1; }; }; then
+		[ $2 = ss ] && { _PATH=origin; _HASH=plain; }
+		echo "{\"password\":\"$(json_string "$_PASS")\",\"method\":\"$(json_string "$_USER")\",\"protocol\":\"$_PATH\",\"protocol_param\":\"$_protoparam\",\"obfs\":\"$_HASH\",\"obfs_param\":\"$_obfsparam\",\"client_settings\":{\"server\":\"$_HOST\",\"server_port\":$_PORT,\"listen_address\":\"0.0.0.0\",\"listen_port\":$LOCAL_PORT}}" > /tmp/ssr.conf
+		XCMD="ssr-client -c /tmp/ssr.conf"
+		return
 	fi
-	[ $1 -le 3 ] && RUN_TYPE="$RUN_TYPE -v"
-	XCMD="$2-$RUN_TYPE -s $_HOST -p $_PORT -k ${_PASS//%/\\x} -b 0.0.0.0 -l $LOCAL_PORT -m $_USER $3"
+
+	if [ $2 = ss ] && type sslocal >/dev/null 2>&1; then
+		local USERINFO=$(printf '%s:%s' "$_USER" "$_PASS" | base64 | tr '+/' '-_' | tr -d '=\r\n')
+		XCMD="sslocal -b 0.0.0.0:$LOCAL_PORT --server-url ss://$USERINFO@$_HOST:$_PORT"
+		[ $RUN_TYPE = redir ] && XCMD="$XCMD --protocol redir"
+	else
+		XCMD="$2-$RUN_TYPE -s $_HOST -p $_PORT -k ${_PASS//%/\\x} -b 0.0.0.0 -l $LOCAL_PORT -m $_USER $3"
+	fi
+	if [ $1 -le 3 ]; then XCMD="$XCMD -v"; fi
+}
+
+core_trojan() {
+	local RUN_TYPE=client LOCAL_PORT=1080
+	[ $RUN_MODE = ROUTER-redir ] && { RUN_TYPE=nat; LOCAL_PORT=1088; }
+	resolve $1
+	[ -z $_PORT ] && _PORT=443
+	echo "{\"run_type\":\"$RUN_TYPE\",\"local_addr\":\"0.0.0.0\",\"local_port\":$LOCAL_PORT,\"remote_addr\":\"$_HOST\",\"remote_port\":$_PORT,\"password\":[\"${_USER//%/\\x}\"],\"log_level\":$1,\"ssl\":{\"verify\":false}}" > /tmp/trojan.conf
+	XCMD="trojan -c /tmp/trojan.conf"
 }
 
 start() {
@@ -426,24 +461,12 @@ start() {
 	fi
 
 	case $_PROT in
-		*socks5) RUN_MODE=local;;
-		*) RUN_MODE=$_MODE-redir;;
+	*socks5) RUN_MODE=local;;
+	*) RUN_MODE=$_MODE-redir;;
 	esac
 
 	case $_PROT in
-	trojan*)
-		if [ $RUN_MODE = ROUTER-redir ]; then
-			local RUN_TYPE=nat
-			local LOCAL_PORT=1088
-		else
-			local RUN_TYPE=client
-			local LOCAL_PORT=1080
-		fi
-		resolve $1
-		[ -z $_PORT ] && _PORT=443
-		echo "{\"run_type\":\"$RUN_TYPE\",\"local_addr\":\"0.0.0.0\",\"local_port\":$LOCAL_PORT,\"remote_addr\":\"$_HOST\",\"remote_port\":$_PORT,\"password\":[\"${_USER//%/\\x}\"],\"log_level\":$1,\"ssl\":{\"verify\":false}}" > /tmp/trojan.conf
-		XCMD="trojan -c /tmp/trojan.conf"
-		;;
+	trojan*) core_trojan $1 ;;
 	ssr*)
 		if [ -z $_USER ]; then
 			parse_uri `decode_b64 $_HOST`
@@ -457,20 +480,59 @@ start() {
 			_protoparam=`decode_b64 $_protoparam`
 			_ARGS="protoparam=$_protoparam&obfsparam=$_obfsparam"
 		fi
-		ssxcmd $1 ssr "-O $_PATH -G $_protoparam -o $_HASH -g $_obfsparam"
+		core_ssx $1 ssr "-O $_PATH -G $_protoparam -o $_HASH -g $_obfsparam"
 		;;
 	ss*)
 		if [ -z $_USER ]; then
-			parse_uri `decode_b64 $_HOST`
+			parse_uri "$(decode_b64 "$_HOST")"
 		elif [ -z $_PASS ]; then
-			split_str _USER _PASS : `decode_b64 $_USER`
+			split_str _USER _PASS : "$(decode_b64 "$_USER")"
+		else
+			_PASS=$(url_decode "$_PASS")
 		fi
-		([ $_MODE != ROUTER ] || type ss-redir >/dev/null 2>&1) && ssxcmd $1 ss || ssxcmd $1 ssr "-O origin -o plain"
+		([ $_MODE != ROUTER ] || type ss-redir >/dev/null 2>&1 || type sslocal >/dev/null 2>&1) && core_ssx $1 ss || core_ssx $1 ssr "-O origin -o plain"
 		;;
 	socks5)
 		[ -z $_PORT ] && _PORT=1080
 		proxy $1 $_PROT $_HOST $_PORT
 		return
+		;;
+	vmess|vless|hy2|hysteria2|tuic)
+		local PROTOCOL=$_PROT
+		if [ $PROTOCOL = vmess ]; then
+			type jsonfilter >/dev/null 2>&1 || type jq >/dev/null 2>&1 || { echo "VMess requires jsonfilter or jq" >&2; return 1; }
+			local DATA=$(decode_b64 "$(printf '%s' "$_VMESS" | tr '_-' '/+')")
+			[ -n "$DATA" ] || { echo "Invalid VMess link" >&2; return 1; }
+			_HOST=$(json_field "$DATA" add); _PORT=$(json_field "$DATA" port)
+			_USER=$(json_field "$DATA" id); _aid=$(json_field "$DATA" aid); _scy=$(json_field "$DATA" scy)
+			_type=$(json_field "$DATA" net); _security=$(json_field "$DATA" tls); _sni=$(json_field "$DATA" sni)
+			_host=$(json_field "$DATA" host); _path=$(json_field "$DATA" path)
+			[ "$_type" = grpc ] && _serviceName=$_path
+			[ -n "$_HOST" ] && [ -n "$_PORT" ] && [ -n "$_USER" ] || { echo "Invalid VMess link" >&2; return 1; }
+			case ${_aid:-0} in *[!0-9]*) echo "Invalid VMess alterId" >&2; return 1;; esac
+		fi
+		[ $PROTOCOL = hy2 ] && PROTOCOL=hysteria2
+		local PORT=${_PORT:-443} IN_HOST=127.0.0.1 IN_PORT=1080
+		local HOST USER PASS SNI PATH_VALUE HOST_VALUE
+		[ $RUN_MODE = ROUTER-redir ] && { IN_HOST=0.0.0.0; IN_PORT=1088; }
+		case $PORT in ''|*[!0-9]*) echo "Invalid port: $PORT" >&2; return 1;; esac
+		[ $PORT -gt 0 ] && [ $PORT -le 65535 ] || return 1
+		HOST=$(json_string "$_HOST")
+		USER=$(json_string "$(url_decode "$_USER")")
+		PASS=$(json_string "$(url_decode "$_PASS")")
+		SNI=$(json_string "$(url_decode "${_sni:-$_HOST}")")
+		PATH_VALUE=$(json_string "$(url_decode "${_path:-/}")")
+		HOST_VALUE=$(json_string "$(url_decode "${_host:-$_HOST}")")
+		if { [ $PROTOCOL = vless ] || [ $PROTOCOL = vmess ]; }; then
+			case ${_security:-none} in none|tls|reality) ;; *) echo "Unsupported security: $_security" >&2; return 1;; esac
+			case ${_type:-tcp} in tcp|raw|ws|grpc|httpupgrade) ;; *) echo "Unsupported transport: $_type" >&2; return 1;; esac
+			[ "$_type" = raw ] && _type=tcp
+		elif [ $PROTOCOL = hysteria2 ]; then
+			case $_obfs in ''|salamander) ;; *) echo "Unsupported obfuscation: $_obfs" >&2; return 1;; esac
+		fi
+		if [ $PROTOCOL = vless ] && [ "$_security" = reality ]; then core_xray || core_singbox || return 1
+		else core_singbox || core_xray || return 1
+		fi
 		;;
 	*)
 		usage
@@ -484,7 +546,7 @@ start() {
 	if [ $1 -ge 4 ]; then
 		$XCMD &
 	elif [ $1 -ge 2 ]; then
-		nohup $XCMD &> /tmp/wing.log &
+		nohup $XCMD > /tmp/wing.log 2>&1 &
 	else
 		echo
 		echo "export WING_URL=\"`make_url`\""
@@ -497,25 +559,34 @@ start() {
 }
 
 stop() {
-	inject -D 2> /dev/null
+	if [ $_MODE = ROUTER ]; then
+		if type nft >/dev/null 2>&1; then nft delete table inet wing 2>/dev/null; fi
+		if type $_FW >/dev/null 2>&1; then
+			local _NFT=
+			inject -D 2>/dev/null
+		fi
+		if type ipset >/dev/null 2>&1; then ipset destroy gfwlist 2>/dev/null; fi
+	else
+		inject -D 2>/dev/null
+	fi
+	killall trojan ssr-local ssr-redir ss-local ss-redir sslocal ssredir ssr-client ipt2socks xray sing-box 2> /dev/null
+	rm -f /tmp/trojan.conf /tmp/ssr.conf /tmp/wing-modern.json /tmp/wing.log /tmp/ipt2socks.log
+	if [ $_MODE = ROUTER ]; then
+		dns off
+		/etc/init.d/dnsmasq restart || return 1
+	fi
+	echo Wing service stopped
+}
 
-	killall trojan ssr-local ssr-redir ss-local ss-redir ssr-client ipt2socks 2> /dev/null
-	rm /tmp/trojan.conf /tmp/ssr.conf /tmp/wing.log /tmp/ipt2socks.log 2> /dev/null
-
+resume() {
 	if [ $_MODE = ROUTER ]; then
 		if [ "$_NFT" = 1 ]; then
-			nft delete table inet wing 2>/dev/null
+			nft list set inet wing gfwlist >/dev/null 2>&1 || exit 3
 		else
-			ipset flush gfwlist
-			ipset destroy gfwlist
+			ipset test gfwlist 8.8.8.8 || exit 3
 		fi
-		[ "$1" == "-R" ] && sleep 1 && return
-
-		dns off
-		/etc/init.d/dnsmasq restart
 	fi
-
-	echo Wing service stopped
+	inject -C || inject -A
 }
 
 status() {
@@ -529,55 +600,24 @@ status() {
 }
 
 if [ $_MODE = ROUTER ]; then
+	type iptables-nft >/dev/null 2>&1 && _FW=iptables-nft || _FW=iptables
 	if [ "$WING_CHINADNS" != 1 ] && type nft >/dev/null 2>&1 && dnsmasq --version 2>/dev/null | grep -Eq '(^| )nftset( |$)' && dnsmasq --version 2>/dev/null | grep -q 'no-ipset'; then
 		_NFT=1
 	else
-		type iptables-nft >/dev/null 2>&1 && _FW=iptables-nft || _FW=iptables
-		type $_FW >/dev/null 2>&1 || { echo "$_FW is required" >&2; exit 1; }
+		case $1 in stop|restart) ;; *) type $_FW >/dev/null 2>&1 || { echo "$_FW is required" >&2; exit 1; };; esac
 	fi
 fi
 
 case $1 in
-start)
-	start 5 "$2"
-	;;
-stop)
-	stop
-	;;
-restart)
-	stop -R
-	start 5 "$2"
-	;;
-pause)
-	inject -D
-	;;
-resume)
-	if [ $_MODE = ROUTER ]; then
-		if [ "$_NFT" = 1 ]; then
-			nft list set inet wing gfwlist >/dev/null 2>&1 || exit 3
-		else
-			ipset test gfwlist 8.8.8.8 || exit 3
-		fi
-	fi
-	inject -C || inject -A
-	;;
-update)
-	update "$2" "$3" "$4"
-	;;
--s|status)
-	status "$2"
-	;;
--h)
-	usage
-	;;
--v)
-	start 0 "$2"
-	;;
--v0|-v1|-v2|-v3|-v4|-v5)
-	start ${1:2} "$2"
-	;;
-*)
-	[ -f /tmp/wing.log ] && stop -R
-	start 5 "$1"
-	;;
+start) start 5 "$2" ;;
+stop) stop ;;
+restart) stop && start 5 "$2" ;;
+pause) inject -D ;;
+resume) resume ;;
+update) update "$2" "$3" "$4" ;;
+-s|status) status "$2" ;;
+-h) usage ;;
+-v) start 0 "$2" ;;
+-v0|-v1|-v2|-v3|-v4|-v5) start ${1:2} "$2" ;;
+*) [ ! -f /tmp/wing.log ] || stop || exit 1; start 5 "$1" ;;
 esac
