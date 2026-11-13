@@ -50,63 +50,9 @@ if [[ "$PRESET" != *+NOWING ]]; then
 fi
 find "$WORK/files" -name .DS_Store -delete
 
-python3 - "$IB" "$PRESET" "$OPENWRT_SERIES" <<'PYEOF'
-import json, os, re, sys, urllib.request
-ib, preset, series = sys.argv[1:]
-pkg_dir = os.path.join(ib, 'packages')
-os.makedirs(pkg_dir, exist_ok=True)
-def get(url):
-    return urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'OponWrt'}), timeout=60).read()
-release = json.loads(get('https://api.github.com/repos/jerrykuku/luci-theme-argon/releases/latest'))
-prefixes = ('luci-theme-argon-', 'luci-app-argon-config-', 'luci-i18n-argon-config-zh-cn-')
-found = set()
-for asset in release['assets']:
-    name = asset['name']
-    for prefix in prefixes:
-        if name.startswith(prefix) and name.endswith('.apk'):
-            with open(os.path.join(pkg_dir, name), 'wb') as f:
-                f.write(get(asset['browser_download_url']))
-            found.add(prefix)
-if found != set(prefixes):
-    raise SystemExit('Argon release does not contain all required APKs')
-if '+NOWING' not in preset:
-    missing = {'chinadns-ng', 'ipt2socks', 'simple-obfs-client', 'shadowsocksr-libev-ssr-redir', 'trojan', 'tcping'}
-    base = f'https://downloads.immortalwrt.org/releases/packages-{series}/aarch64_generic/packages'
-    html = get(base + '/').decode('utf-8', 'replace')
-    for pkg in sorted(missing):
-        match = re.search(re.escape(pkg) + r'[_-][0-9][^"/]*\.apk', html)
-        if match:
-            name = match.group(0)
-            with open(os.path.join(pkg_dir, name), 'wb') as f:
-                f.write(get(base + '/' + name))
-            missing.discard(pkg)
-    # SSR 已不在 ImmortalWrt 源中，Passwall 的 25.12 构建（libpcre2）可作替代。
-    if missing:
-        rss = get(f'https://sourceforge.net/projects/openwrt-passwall-build/rss?path=/releases/packages-{series}/aarch64_generic/passwall_packages').decode('utf-8', 'replace')
-        for pkg in sorted(missing):
-            match = re.search(r'https?://[^<"]+/(' + re.escape(pkg) + r'[_-][0-9][^"<]*\.apk)', rss)
-            if match:
-                with open(os.path.join(pkg_dir, match.group(1)), 'wb') as f:
-                    f.write(get(match.group(0) + '/download'))
-                missing.discard(pkg)
-    for pkg in ('chinadns-ng', 'ipt2socks'):
-        if pkg in missing:
-            raise SystemExit('Required Wing package missing: ' + pkg)
-PYEOF
-
-# ImageBuilder includes third-party APKs downloaded above.
-sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$IB/Makefile"
-python3 - "$IB/Makefile" "$SCRIPT_DIR/patches/ui-replace.sh" <<'PYEOF'
-import re, sys
-path, hook = sys.argv[1:]
-with open(path, encoding='utf-8') as f:
-    text = f.read()
-text, count = re.subn(r'(^build_image:[^\n]*\n)', lambda m: m.group(1) + '\t' + hook + ' $(TARGET_DIR)\n', text, count=1, flags=re.M)
-if count != 1:
-    raise SystemExit('ImageBuilder build_image target not found')
-with open(path, 'w', encoding='utf-8') as f:
-    f.write(text)
-PYEOF
+NOWING=""
+[[ "$PRESET" == *+NOWING ]] && NOWING="--nowing"
+python3 "$SCRIPT_DIR/prepare-imagebuilder.py" "$IB" "$OPENWRT_SERIES" aarch64_generic $NOWING
 
 # 目标默认包：chipidea 驱动已内建于内核，kmod-usb-chipidea 仅 ath79 提供；
 # 默认 ip-tiny 与 Wing 所需 ip-full 互斥。

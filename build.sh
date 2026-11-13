@@ -77,10 +77,10 @@ PYEOF
 	fi
 	find "$WORK_FILES" -name ".DS_Store" -delete
 
-	python3 - "$OPENWRT_VER" "$OPENWRT_SERIES" "$TARGET_BOARD" "$TARGET_SUBTARGET" "$PKG_ARCH" "$WORK_IB" <<'PYEOF'
-import os, re, sys, json, subprocess, tempfile, urllib.request
+	python3 - "$OPENWRT_VER" "$TARGET_BOARD" "$TARGET_SUBTARGET" "$WORK_IB" <<'PYEOF'
+import os, re, subprocess, sys, tempfile, urllib.request
 
-ver, series, board, subtarget, pkg_arch, work_ib = sys.argv[1:7]
+ver, board, subtarget, work_ib = sys.argv[1:5]
 base_url = f"https://downloads.openwrt.org/releases/{ver}/targets/{board}/{subtarget}"
 
 if not os.path.isdir(work_ib):
@@ -96,81 +96,12 @@ if not os.path.isdir(work_ib):
         os.mkdir(extracted)
         subprocess.run(["tar", "-xf", ib_path, "-C", extracted, "--strip-components=1"], check=True)
         os.rename(extracted, work_ib)
-
-pkg_ext = "apk" if os.path.exists(os.path.join(work_ib, "repositories")) else "ipk"
-pkg_dir = os.path.join(work_ib, "packages")
-os.makedirs(pkg_dir, exist_ok=True)
-
-req = urllib.request.Request("https://api.github.com/repos/jerrykuku/luci-theme-argon/releases/latest", headers={"User-Agent": "OpenWrt-ImageBuilder"})
-rel = json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
-for asset in rel.get("assets", []):
-    url = asset.get("browser_download_url", "")
-    name = os.path.basename(url)
-    if url.endswith(f".{pkg_ext}") and (name.startswith("luci-theme-argon") or name.startswith("luci-app-argon-config") or name.startswith("luci-i18n-argon-config-zh-cn")):
-        dst = os.path.join(pkg_dir, name)
-        if not os.path.exists(dst):
-            print(f"[build] Argon: {name}")
-            urllib.request.urlretrieve(url, dst)
-
-third_party = [
-    "chinadns-ng", "simple-obfs-client",
-    "shadowsocksr-libev-ssr-redir", "trojan", "ipt2socks", "tcping",
-]
-for cand_series in (series, "24.10"):
-    im_base = f"https://downloads.immortalwrt.org/releases/packages-{cand_series}/{pkg_arch}/packages"
-    try:
-        html = urllib.request.urlopen(f"{im_base}/").read().decode("utf-8", "ignore")
-    except Exception:
-        continue
-    print(f"[build] ImmortalWrt: {im_base}/")
-    for pkg in third_party:
-        m = re.search(rf'href="({re.escape(pkg)}[_-][0-9][^"]*\.{pkg_ext})"', html)
-        if m:
-            dst = os.path.join(pkg_dir, m.group(1))
-            if not os.path.exists(dst):
-                print(f"  -> {m.group(1)}")
-                urllib.request.urlretrieve(f"{im_base}/{m.group(1)}", dst)
-    break
-
-missing = [p for p in third_party if not any(f.startswith(f"{p}-") or f.startswith(f"{p}_") for f in os.listdir(pkg_dir))]
-if missing:
-    pw_base = f"https://sourceforge.net/projects/openwrt-passwall-build/files/releases/packages-{series}/{pkg_arch}/passwall_packages"
-    try:
-        pw_html = urllib.request.urlopen(f"{pw_base}/").read().decode("utf-8", "ignore")
-        print(f"[build] Passwall: {pw_base}/")
-        for pkg in missing:
-            m = re.search(rf'({re.escape(pkg)}[_-][0-9][^"/]*\.{pkg_ext})', pw_html)
-            if m:
-                fname = m.group(1)
-                dst = os.path.join(pkg_dir, fname)
-                if not os.path.exists(dst):
-                    print(f"  -> {fname}")
-                    urllib.request.urlretrieve(f"https://downloads.sourceforge.net/project/openwrt-passwall-build/releases/packages-{series}/{pkg_arch}/passwall_packages/{fname}", dst)
-    except Exception as e:
-        print(f"[build] Passwall feed skipped: {e}")
 PYEOF
 
 	mkdir -p "$WORK_IB/tmp"
-
-	# 跳过第三方本地包的签名强校验（同时适配 opkg 与 25.12 apk）
-	if [ -f "$WORK_IB/repositories.conf" ]; then
-		sed -i 's/^option check_signature/# option check_signature/' "$WORK_IB/repositories.conf"
-	fi
-	# 在打包镜像前对 TARGET_DIR 原地执行 UI 词条、菜单与模板定制
-	if [ -f "$WORK_IB/Makefile" ]; then
-		sed -i -e 's/apk add /apk add --allow-untrusted /g' -e 's/$(APK) add /$(APK) add --allow-untrusted /g' "$WORK_IB/Makefile"
-		python3 - "$WORK_IB/Makefile" "$SCRIPT_DIR/patches/ui-replace.sh" <<'HOOK_EOF'
-import re, sys
-mf, hook = sys.argv[1], sys.argv[2]
-txt = open(mf, "r", encoding="utf-8").read()
-if hook not in txt:
-    txt2, n = re.subn(r"(^build_image:[^\n]*\n)", rf"\1\t{hook} $(TARGET_DIR)\n", txt, count=1, flags=re.M)
-    if n != 1:
-        raise SystemExit("[build] Error: build_image: target not found in ImageBuilder Makefile")
-    open(mf, "w", encoding="utf-8").write(txt2)
-    print("[build] Hooked ui-replace.sh into build_image target")
-HOOK_EOF
-	fi
+	local NOWING=""
+	[[ "$PRESET" == *"+NOWING"* ]] && NOWING="--nowing"
+	python3 "$SCRIPT_DIR/prepare-imagebuilder.py" "$WORK_IB" "$OPENWRT_SERIES" "$PKG_ARCH" $NOWING
 
 	if [ "$TARGET_BOARD" = "x86" ]; then
 		sed -i 's/# CONFIG_TARGET_ROOTFS_TARGZ is not set/CONFIG_TARGET_ROOTFS_TARGZ=y/' "$WORK_IB/.config" || echo "CONFIG_TARGET_ROOTFS_TARGZ=y" >> "$WORK_IB/.config"
