@@ -37,7 +37,7 @@ if [ -f /lib/wifi/mac80211.uc ]; then
 		-e 's/none/psk2/' \
 		-e 's/key || ""/key || "12345678"/' /lib/wifi/mac80211.uc
 fi
-if [ -f /etc/config/wireless ]; then
+if [ -f /tmp/oponwrt-wireless-firstboot ] && [ -f /etc/config/wireless ]; then
 	idx=0
 	while uci -q get wireless.@wifi-device[$idx] >/dev/null 2>&1; do
 		uci -q set wireless.@wifi-device[$idx].disabled='0'
