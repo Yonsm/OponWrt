@@ -201,7 +201,7 @@ if [ -f "$TARGET_DIR/usr/share/ucode/luci/version.uc" ]; then
 fi
 for F in "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer.ut" "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
 	if [ -f "$F" ]; then
-		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' "$F" && rm -f "$F.bak"
+		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' -e "s/ + '-' + version.distrevision//g" "$F" && rm -f "$F.bak"
 	fi
 done
 
