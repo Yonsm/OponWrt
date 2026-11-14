@@ -50,7 +50,7 @@ if [[ "$PRESET" != *+NOWING ]]; then
 fi
 cat > "$WORK/files/etc/uci-defaults/zz-msm8916-init" <<'EOF'
 #!/bin/sh
-uci set system.@system[0].hostname='OpenWrt'
+uci set system.@system[0].hostname='Modem'
 uci commit system
 EOF
 chmod +x "$WORK/files/etc/uci-defaults/zz-msm8916-init"

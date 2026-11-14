@@ -179,6 +179,23 @@ for path in glob.glob(os.path.join(menu_dir, "*.json")):
             json.dump(menu, f, ensure_ascii=False, indent="\t")
             f.write("\n")
 
+gadget = os.path.join(target_dir, "usr/sbin/usb-gadget")
+if os.path.exists(gadget):
+    with open(gadget, encoding="utf-8") as f:
+        text = f.read()
+    cleanup = """    # Close the serial console before removing its USB function.
+    for fd in /proc/[0-9]*/fd/0; do
+        [ "$(readlink "$fd")" = /dev/ttyGS0 ] || continue
+        local pid="${fd#/proc/}"
+        kill "${pid%%/*}" 2>/dev/null || true
+    done
+
+"""
+    if cleanup not in text:
+        text = text.replace("    # Remove function directories\n", cleanup + "    # Remove function directories\n")
+        with open(gadget, "w", encoding="utf-8") as f:
+            f.write(text)
+
 # UFI003 的无线灯为 blue:wlan，避免与基带监控共用 green:wan。
 for name in ("usr/sbin/wifi-led-monitor", "etc/init.d/wifi-led-monitor"):
     path = os.path.join(target_dir, name)
