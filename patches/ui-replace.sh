@@ -146,13 +146,15 @@ i18n_dir = os.path.join(target_dir, "usr/lib/lua/luci/i18n")
 os.makedirs(i18n_dir, exist_ok=True)
 write_lmo(os.path.join(i18n_dir, "custom-ui.zh-cn.lmo"), po_hash_map)
 menu_dir = os.path.join(target_dir, "usr/share/luci/menu.d")
+for path in glob.glob(os.path.join(os.path.dirname(po_file), "*.zh-cn.po")):
+    domain = os.path.basename(path).removesuffix(".zh-cn.po")
+    if os.path.exists(os.path.join(menu_dir, "luci-app-" + domain.replace("_", "-") + ".json")):
+        entries = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(path).items()}
+        entries.update(po_hash_map)
+        write_lmo(os.path.join(i18n_dir, domain + ".zh-cn.lmo"), entries)
+
 sms_menu = os.path.join(menu_dir, "luci-app-sms-manager.json")
 if os.path.exists(sms_menu):
-    sms_po = os.path.join(os.path.dirname(po_file), "sms_manager.zh-cn.po")
-    entries = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(sms_po).items()}
-    entries.update(po_hash_map)
-    write_lmo(os.path.join(i18n_dir, "sms_manager.zh-cn.lmo"), entries)
-
     with open(sms_menu, encoding="utf-8") as f:
         menu = json.load(f)
     menu.pop("admin/modem", None)
