@@ -9,7 +9,7 @@ PO_FILE="${2:-$SCRIPT_DIR/custom-ui.po}"
 
 # 1. 原地修补 TARGET_DIR 中已安装的官方 *.zh-cn.lmo 翻译包
 python3 - "$PO_FILE" "$TARGET_DIR" <<'PYEOF'
-import os, re, sys, glob, struct
+import os, re, sys, glob, struct, json
 
 po_file, target_dir = sys.argv[1], sys.argv[2]
 
@@ -97,7 +97,8 @@ def write_lmo(path: str, entries_by_keyid: dict):
     with open(path, "wb") as f:
         f.write(body)
 
-po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(po_file).items()}
+translations = parse_po(po_file)
+po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in translations.items()}
 EXACT = {
     "LED 配置": "灯光配置", "<abbr title=\"发光二极管\">LED</abbr> 配置": "灯光配置",
     "路由": "路由规则", "防火墙": "防火长城", "进程": "系统进程", "Aria2": "下载服务",
@@ -139,6 +140,67 @@ for lmo_path in sorted(glob.glob(os.path.join(target_dir, "usr/lib/lua/luci/i18n
     if changed:
         write_lmo(lmo_path, entries)
         print(f"[ui-replace] Patched LMO: {os.path.basename(lmo_path)}")
+
+# 无独立中文包的页面复用 LuCI 翻译目录。
+i18n_dir = os.path.join(target_dir, "usr/lib/lua/luci/i18n")
+os.makedirs(i18n_dir, exist_ok=True)
+write_lmo(os.path.join(i18n_dir, "custom-ui.zh-cn.lmo"), po_hash_map)
+menu_dir = os.path.join(target_dir, "usr/share/luci/menu.d")
+sms_menu = os.path.join(menu_dir, "luci-app-sms-manager.json")
+if os.path.exists(sms_menu):
+    sms_po = os.path.join(os.path.dirname(po_file), "sms_manager.zh-cn.po")
+    entries = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(sms_po).items()}
+    entries.update(po_hash_map)
+    write_lmo(os.path.join(i18n_dir, "sms_manager.zh-cn.lmo"), entries)
+
+    with open(sms_menu, encoding="utf-8") as f:
+        menu = json.load(f)
+    menu.pop("admin/modem", None)
+    menu = {key.replace("admin/modem/", "admin/network/"): node for key, node in menu.items()}
+    sms = menu["admin/network/luci-app-sms-manager"]
+    sms["order"] = 999
+    sms["action"]["path"] = sms["action"]["path"].replace("admin/modem/", "admin/network/")
+    with open(sms_menu, "w", encoding="utf-8") as f:
+        json.dump(menu, f, ensure_ascii=False, indent="\t")
+        f.write("\n")
+
+for path in glob.glob(os.path.join(menu_dir, "*.json")):
+    with open(path, encoding="utf-8") as f:
+        menu = json.load(f)
+    changed = False
+    for node in menu.values():
+        title = node.get("title")
+        translation = translations.get(title)
+        if title in ("WireGuard", "Reboot to EDL", "File Manager", "SMS Manager",
+                     "CPU Performance", "USB Gadget", "Modem Watchdog", "Tailscale",
+                     "Wake on LAN", "Station Mode", "Statation Mode") and translation:
+            node["title"] = translation
+            changed = True
+    if changed:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(menu, f, ensure_ascii=False, indent="\t")
+            f.write("\n")
+
+# UFI003 的无线灯为 blue:wlan，避免与基带监控共用 green:wan。
+for name in ("usr/sbin/wifi-led-monitor", "etc/init.d/wifi-led-monitor"):
+    path = os.path.join(target_dir, name)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if '/sys/class/leds/blue:wlan' in text:
+            continue
+        text = text.replace('LED="/sys/class/leds/green:wlan"\n',
+                            'LED="/sys/class/leds/blue:wlan"\n'
+                            '        [ -d "$LED" ] || LED="/sys/class/leds/green:wlan"\n')
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+edl = os.path.join(target_dir, "usr/lib/lua/luci/controller/reboot-modes.lua")
+if os.path.exists(edl):
+    with open(edl, encoding="utf-8") as f:
+        text = f.read()
+    with open(edl, "w", encoding="utf-8") as f:
+        f.write(text.replace('"Reboot to EDL"', '"重启救急"'))
 PYEOF
 
 # 2. 原地修改 TARGET_DIR 中的菜单 JSON、引导页、版本标识与 Argon 页脚模板

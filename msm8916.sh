@@ -48,6 +48,12 @@ awk '
 if [[ "$PRESET" != *+NOWING ]]; then
 	cp -a "$SCRIPT_DIR/wing/." "$WORK/files/"
 fi
+cat > "$WORK/files/etc/uci-defaults/zz-msm8916-init" <<'EOF'
+#!/bin/sh
+uci set system.@system[0].hostname='OpenWrt'
+uci commit system
+EOF
+chmod +x "$WORK/files/etc/uci-defaults/zz-msm8916-init"
 find "$WORK/files" -name .DS_Store -delete
 
 NOWING=""
@@ -56,7 +62,7 @@ python3 "$SCRIPT_DIR/prepare.py" "$IB" "$OPENWRT_SERIES" aarch64_generic $NOWING
 
 # 目标默认包：chipidea 驱动已内建于内核，kmod-usb-chipidea 仅 ath79 提供；
 # 默认 ip-tiny 与 Wing 所需 ip-full 互斥。
-VALID_PKGS="-luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman -kmod-usb-chipidea -ip-tiny"
+VALID_PKGS="-luci-app-firmware-upgrade -msm89xx-firmware-upgrade luci-i18n-filemanager-zh-cn luci-i18n-wol-zh-cn -luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman -kmod-usb-chipidea -ip-tiny"
 for pkg in $FINAL_PACKAGES; do
 	case "$pkg" in
 	chinadns-ng|ipt2socks|simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|tcping)
