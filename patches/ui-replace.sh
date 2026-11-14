@@ -201,7 +201,7 @@ if os.path.exists(edl):
         f.write(text.replace('"Reboot to EDL"', '"重启救急"'))
 PYEOF
 
-# 2. 原地修改 TARGET_DIR 中的菜单 JSON、引导页、版本标识与 Argon 页脚模板
+# 2. 原地修改 TARGET_DIR 中的菜单 JSON、引导页与主题页脚
 M="$TARGET_DIR/usr/share/luci/menu.d"
 if [ -f "$M/luci-mod-status.json" ]; then
 	sed -i.bak \
@@ -256,9 +256,11 @@ fi
 if [ -f "$TARGET_DIR/www/index.html" ]; then
 	sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$TARGET_DIR/www/index.html" && rm -f "$TARGET_DIR/www/index.html.bak"
 fi
-for F in "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer.ut" "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
+for F in "$TARGET_DIR"/usr/share/ucode/luci/template/themes/*/footer*.ut; do
 	if [ -f "$F" ]; then
-		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' -e "s/ + '-' + version.distrevision//g" \
+		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' -e 's/ ({{ version.distrevision }})//g' -e "s/ + '-' + version.distrevision//g" \
+			-e 's/{{ entityencode(version.luciname, true) }} ({{ entityencode(version.luciversion, true) }})/Yonsm/g' \
+			-e 's/ ({{ entityencode(version.distrevision, true) }})//g' \
 			-e "s/const luci_info = .*;/const luci_info = 'Powered by Yonsm';/" \
 			-e "s/split(version.luciname, ' (')\[0\]/luci_info/" "$F" && rm -f "$F.bak"
 	fi
