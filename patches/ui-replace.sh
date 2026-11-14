@@ -97,8 +97,7 @@ def write_lmo(path: str, entries_by_keyid: dict):
     with open(path, "wb") as f:
         f.write(body)
 
-translations = parse_po(po_file)
-po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in translations.items()}
+po_hash_map = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(po_file).items()}
 EXACT = {
     "LED 配置": "灯光配置", "<abbr title=\"发光二极管\">LED</abbr> 配置": "灯光配置",
     "路由": "路由规则", "防火墙": "防火长城", "进程": "系统进程", "Aria2": "下载服务",
@@ -141,18 +140,7 @@ for lmo_path in sorted(glob.glob(os.path.join(target_dir, "usr/lib/lua/luci/i18n
         write_lmo(lmo_path, entries)
         print(f"[ui-replace] Patched LMO: {os.path.basename(lmo_path)}")
 
-# 无独立中文包的页面复用 LuCI 翻译目录。
-i18n_dir = os.path.join(target_dir, "usr/lib/lua/luci/i18n")
-os.makedirs(i18n_dir, exist_ok=True)
-write_lmo(os.path.join(i18n_dir, "custom-ui.zh-cn.lmo"), po_hash_map)
 menu_dir = os.path.join(target_dir, "usr/share/luci/menu.d")
-for path in glob.glob(os.path.join(os.path.dirname(po_file), "*.zh-cn.po")):
-    domain = os.path.basename(path).removesuffix(".zh-cn.po")
-    if os.path.exists(os.path.join(menu_dir, "luci-app-" + domain.replace("_", "-") + ".json")):
-        entries = {sfh_hash(k.encode("utf-8")): v for k, v in parse_po(path).items()}
-        entries.update(po_hash_map)
-        write_lmo(os.path.join(i18n_dir, domain + ".zh-cn.lmo"), entries)
-
 sms_menu = os.path.join(menu_dir, "luci-app-sms-manager.json")
 if os.path.exists(sms_menu):
     with open(sms_menu, encoding="utf-8") as f:
@@ -166,16 +154,24 @@ if os.path.exists(sms_menu):
         json.dump(menu, f, ensure_ascii=False, indent="\t")
         f.write("\n")
 
+menu_titles = {
+    "WireGuard": "链路卫士", "Reboot to EDL": "重启救急", "File Manager": "文件管理",
+    "SMS Manager": "短信管理", "CPU Performance": "核心性能", "USB Gadget": "外设模式",
+    "Modem Watchdog": "基带监控", "Tailscale": "尾网互联", "Wake on LAN": "网络唤醒",
+    "Station Mode": "站点模式", "Statation Mode": "站点模式",
+    "Received Messages": "接收短信", "Send Messages": "发送短信", "USSD Codes": "USSD 指令",
+    "AT Commands": "AT 指令", "Package update and support": "更新与支持",
+    "Global Settings": "全局设置", "Interface Info": "接口信息", "Logs": "日志",
+    "Overview": "概览", "Configuration": "配置", "Uplink": "上行网络",
+}
 for path in glob.glob(os.path.join(menu_dir, "*.json")):
     with open(path, encoding="utf-8") as f:
         menu = json.load(f)
     changed = False
     for node in menu.values():
         title = node.get("title")
-        translation = translations.get(title)
-        if title in ("WireGuard", "Reboot to EDL", "File Manager", "SMS Manager",
-                     "CPU Performance", "USB Gadget", "Modem Watchdog", "Tailscale",
-                     "Wake on LAN", "Station Mode", "Statation Mode") and translation:
+        translation = menu_titles.get(title)
+        if translation:
             node["title"] = translation
             changed = True
     if changed:
@@ -260,12 +256,11 @@ fi
 if [ -f "$TARGET_DIR/www/index.html" ]; then
 	sed -i.bak 's/LuCI - Lua Configuration Interface/Loading.../g' "$TARGET_DIR/www/index.html" && rm -f "$TARGET_DIR/www/index.html.bak"
 fi
-if [ -f "$TARGET_DIR/usr/share/ucode/luci/version.uc" ]; then
-	sed -i.bak -e "s/luciname\s*=\s*\"[^\"]*\"/luciname = \"Yonsm\"/" -e "s/luciversion\s*=\s*\"[^\"]*\"/luciversion = \"$(date +%Y-%m-%d)\"/" "$TARGET_DIR/usr/share/ucode/luci/version.uc" && rm -f "$TARGET_DIR/usr/share/ucode/luci/version.uc.bak"
-fi
 for F in "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer.ut" "$TARGET_DIR/usr/share/ucode/luci/template/themes/argon/footer_login.ut"; do
 	if [ -f "$F" ]; then
-		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' -e "s/ + '-' + version.distrevision//g" "$F" && rm -f "$F.bak"
+		sed -i.bak -e 's#openwrt/luci#Yonsm/OponWrt#g' -e 's/{{ version.luciname }} ({{ version.luciversion }})/Yonsm/g' -e 's/-{{ version.distrevision }}//g' -e "s/ + '-' + version.distrevision//g" \
+			-e "s/const luci_info = .*;/const luci_info = 'Powered by Yonsm';/" \
+			-e "s/split(version.luciname, ' (')\[0\]/luci_info/" "$F" && rm -f "$F.bak"
 	fi
 done
 
