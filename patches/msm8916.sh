@@ -1,0 +1,89 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_DIR="${1:?Usage: $0 <TARGET_DIR> [PO_FILE]}"
+"$SCRIPT_DIR/ui-replace.sh" "$@"
+
+python3 - "$TARGET_DIR" <<'PYEOF'
+import glob, json, os, sys
+
+target_dir = sys.argv[1]
+
+menu_dir = os.path.join(target_dir, "usr/share/luci/menu.d")
+sms_menu = os.path.join(menu_dir, "luci-app-sms-manager.json")
+if os.path.exists(sms_menu):
+    with open(sms_menu, encoding="utf-8") as f:
+        menu = json.load(f)
+    menu.pop("admin/modem", None)
+    menu = {key.replace("admin/modem/", "admin/network/"): node for key, node in menu.items()}
+    sms = menu["admin/network/luci-app-sms-manager"]
+    sms["order"] = 999
+    sms["action"]["path"] = sms["action"]["path"].replace("admin/modem/", "admin/network/")
+    with open(sms_menu, "w", encoding="utf-8") as f:
+        json.dump(menu, f, ensure_ascii=False, indent="\t")
+        f.write("\n")
+
+menu_titles = {
+    "Reboot to EDL": "重启救急",
+    "SMS Manager": "短信管理", "CPU Performance": "核心性能", "USB Gadget": "外设模式",
+    "Modem Watchdog": "基带监控",
+    "Station Mode": "站点模式", "Statation Mode": "站点模式",
+    "Received Messages": "接收短信", "Send Messages": "发送短信", "USSD Codes": "USSD 指令",
+    "AT Commands": "AT 指令", "Package update and support": "更新与支持",
+    "Global Settings": "全局设置", "Interface Info": "接口信息", "Logs": "日志",
+    "Overview": "概览", "Configuration": "配置", "Uplink": "上行网络",
+}
+for path in glob.glob(os.path.join(menu_dir, "*.json")):
+    with open(path, encoding="utf-8") as f:
+        menu = json.load(f)
+    changed = False
+    for node in menu.values():
+        title = node.get("title")
+        translation = menu_titles.get(title)
+        if translation:
+            node["title"] = translation
+            changed = True
+    if changed:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(menu, f, ensure_ascii=False, indent="\t")
+            f.write("\n")
+
+gadget = os.path.join(target_dir, "usr/sbin/usb-gadget")
+if os.path.exists(gadget):
+    with open(gadget, encoding="utf-8") as f:
+        text = f.read()
+    cleanup = """    # Close the serial console before removing its USB function.
+    for fd in /proc/[0-9]*/fd/0; do
+        [ "$(readlink "$fd")" = /dev/ttyGS0 ] || continue
+        local pid="${fd#/proc/}"
+        kill "${pid%%/*}" 2>/dev/null || true
+    done
+
+"""
+    if cleanup not in text:
+        text = text.replace("    # Remove function directories\n", cleanup + "    # Remove function directories\n")
+        with open(gadget, "w", encoding="utf-8") as f:
+            f.write(text)
+
+# UFI003 的无线灯为 blue:wlan，避免与基带监控共用 green:wan。
+for name in ("usr/sbin/wifi-led-monitor", "etc/init.d/wifi-led-monitor"):
+    path = os.path.join(target_dir, name)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if '/sys/class/leds/blue:wlan' in text:
+            continue
+        text = text.replace('LED="/sys/class/leds/green:wlan"\n',
+                            'LED="/sys/class/leds/blue:wlan"\n'
+                            '        [ -d "$LED" ] || LED="/sys/class/leds/green:wlan"\n')
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+edl = os.path.join(target_dir, "usr/lib/lua/luci/controller/reboot-modes.lua")
+if os.path.exists(edl):
+    with open(edl, encoding="utf-8") as f:
+        text = f.read()
+    with open(edl, "w", encoding="utf-8") as f:
+        f.write(text.replace('"Reboot to EDL"', '"重启救急"'))
+PYEOF
