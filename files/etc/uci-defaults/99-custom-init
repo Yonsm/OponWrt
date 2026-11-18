@@ -1,0 +1,160 @@
+#!/bin/sh
+
+# 1. 版本标识精简与软件源替换
+if [ -f /etc/openwrt_release ]; then
+	sed -i 's/%D %V %C/%D %V/' /etc/openwrt_release
+fi
+for FEED_FILE in /etc/opkg/distfeeds.conf /etc/apk/repositories.d/distfeeds.list; do
+	[ -f "$FEED_FILE" ] && sed -i 's#downloads.openwrt.org#mirrors.tencent.com/openwrt#g' "$FEED_FILE"
+done
+
+# 2. 默认 root 密码设置
+sed -i 's#^root:::#root:$1$FUMzmZ8K$CdR1/ll9iYIgyeoZKU1OX0:19906:#' /etc/shadow
+
+# 3. 系统基础参数（主机名、时区、NTP 时间服务器）
+uci -q batch <<EOF
+set system.@system[0].hostname='Router'
+set system.@system[0].description='OponWrt Router'
+set system.@system[0].timezone='CST-8'
+set system.@system[0].zonename='Asia/Shanghai'
+delete system.ntp.server
+add_list system.ntp.server='ntp.aliyun.com'
+add_list system.ntp.server='cn.pool.ntp.org'
+add_list system.ntp.server='time.ustc.edu.cn'
+commit system
+EOF
+
+# 4. 网络配置（IPv6 ULA 前缀固定为 fd00::/48）
+uci -q batch <<EOF
+set network.globals.ula_prefix='fd00::/48'
+commit network
+EOF
+
+# 5. 默认无线 WiFi 配置（SSID: OponWrt，密码: 12345678，加密: psk2，默认开启）
+if [ -f /lib/wifi/mac80211.uc ]; then
+	sed -i -e 's/OpenWrt/OponWrt/' \
+		-e 's/0 : 1/0 : 0/' \
+		-e 's/none/psk2/' \
+		-e 's/key || ""/key || "12345678"/' /lib/wifi/mac80211.uc
+fi
+if [ -f /tmp/oponwrt-wireless-firstboot ] && [ -f /etc/config/wireless ]; then
+	idx=0
+	while uci -q get wireless.@wifi-device[$idx] >/dev/null 2>&1; do
+		uci -q set wireless.@wifi-device[$idx].disabled='0'
+		idx=$((idx + 1))
+	done
+	idx=0
+	while uci -q get wireless.@wifi-iface[$idx] >/dev/null 2>&1; do
+		uci -q set wireless.@wifi-iface[$idx].ssid='OponWrt'
+		uci -q set wireless.@wifi-iface[$idx].encryption='psk2'
+		uci -q set wireless.@wifi-iface[$idx].key='12345678'
+		uci -q set wireless.@wifi-iface[$idx].disabled='0'
+		idx=$((idx + 1))
+	done
+	uci -q commit wireless
+fi
+
+# 6. uHTTPd Web 服务端口调整（HTTPS 监听端口由 443 改为 81）
+if [ -f /etc/config/uhttpd ]; then
+	sed -i 's/:443/:81/g' /etc/config/uhttpd
+	uci -q commit uhttpd
+fi
+
+# 7. 防火墙 WAN 口放行规则（Allow-SSH 22 / Allow-HTTP 80 / Allow-HTTPS 81）
+if [ -f /etc/config/firewall ] && ! grep -q "Allow-HTTPS" /etc/config/firewall; then
+	cat <<\EOF >> /etc/config/firewall
+
+config rule
+	option name		Allow-SSH
+	option src		wan
+	option proto		tcp
+	option dest_port	22
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTP
+	option src		wan
+	option proto		tcp
+	option dest_port	80
+	option target		ACCEPT
+
+config rule
+	option name		Allow-HTTPS
+	option src		wan
+	option proto		tcp
+	option dest_port	81
+	option target		ACCEPT
+EOF
+	uci -q commit firewall
+fi
+
+# 8. DHCP / Dnsmasq 配置（开启顺序分配 IP + procd 挂载 gfwlist）
+if [ -f /etc/config/dhcp ]; then
+	uci -q set dhcp.@dnsmasq[0].sequential_ip='1'
+	uci -q commit dhcp
+fi
+if [ -f /etc/init.d/dnsmasq ] && ! grep -Fq "/etc/gfwlist.txt" /etc/init.d/dnsmasq; then
+	sed -i 's#procd_add_jail_mount /etc/passwd#procd_add_jail_mount /etc/gfwlist.txt /etc/gfwlist.conf /etc/passwd#' /etc/init.d/dnsmasq
+fi
+
+# 9. UPnP 自动开启与固定 UUID
+if [ -f /etc/config/upnpd ]; then
+	uci -q batch <<EOF
+set upnpd.config.enabled='1'
+set upnpd.config.uuid='3943084a-dd61-4636-989c-ab0123456789'
+commit upnpd
+EOF
+fi
+
+# 10. LuCI 默认语言、Argon 主题与自定义命令（关闭系统 / 网络接口 / 科学上网）
+if [ -f /etc/config/luci ]; then
+	uci -q set luci.main.lang='zh_cn'
+	[ -d /www/luci-static/argon ] && uci -q set luci.main.mediaurlbase='/luci-static/argon'
+	uci -q commit luci
+	if ! grep -q "poweroff" /etc/config/luci; then
+		cat <<\EOF >> /etc/config/luci
+
+config command
+	option name '关闭系统'
+	option command 'poweroff'
+
+config command
+	option name '网络接口'
+	option command 'ifconfig'
+
+config command
+	option name '科学上网'
+	option command 'wing'
+	option param '1'
+EOF
+	fi
+fi
+
+# 11. DDNS 默认实例命名（myddns_ipv4 -> IPv4, myddns_ipv6 -> IPv6）
+if [ -f /etc/config/ddns ]; then
+	sed -i -e 's/myddns_ipv4/IPv4/g' -e 's/myddns_ipv6/IPv6/g' /etc/config/ddns
+fi
+
+# 12. Samba4 与 Ksmbd 共享描述与权限逻辑定制（保留原 Storage 标识与读写权限规则）
+if [ -f /etc/init.d/samba4 ]; then
+	sed -i -e 's/users" ] && printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\twrite list = %s\\n" "$users" || printf "\\tvalid users = %s\\n" "$users")/' \
+		-e 's/read_only" ] && printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' \
+		-e 's/Samba on OpenWrt/Storage/g' /etc/init.d/samba4
+fi
+if [ -f /etc/config/samba4 ]; then
+	sed -i 's/Samba on Open[Ww][Rr][Tt]/Storage/g' /etc/config/samba4
+fi
+if [ -f /etc/init.d/ksmbd ]; then
+	sed -i -e 's/users" ] && printf.*/users" ] \&\& (([ "$guest_ok" == "yes" ] \&\& [ "$read_only" == "no" ]) \&\& printf "\\read list = guest\\n\\twrite list = %s\\n" "$users" || printf "\\tvalid users = %s\\n" "$users")/' \
+		-e 's/read_only" ] && printf/read_only" ] \&\& ([ -z "$users" ] ||  [ "$guest_ok" == "no" ] || [ "$read_only" == "yes" ]) \&\& printf/' /etc/init.d/ksmbd
+fi
+for KFILE in /etc/config/ksmbd /etc/ksmbd/ksmbd.config.example; do
+	[ -f "$KFILE" ] && sed -i 's/Ksmbd on OpenWrt/Storage/g' "$KFILE"
+done
+if [ -f /etc/ksmbd/ksmbd.conf.template ] && ! grep -q "veto files" /etc/ksmbd/ksmbd.conf.template; then
+	sed -i -e 's/\tsmb2 max/\t#smb2 max/' \
+		-e 's#\tcache read buffers#\tveto files = /Thumbs.db/.DS_Store/._*/.apdisk/lost+found/\n\t\#cache read buffers#' \
+		-e 's/\tcache trans buffers/\t#cache trans buffers/' /etc/ksmbd/ksmbd.conf.template
+fi
+
+exit 0

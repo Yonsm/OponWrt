@@ -1,0 +1,5 @@
+oponwrt_wireless_init() {
+	[ -e /etc/config/wireless ] || touch /tmp/oponwrt-wireless-firstboot
+}
+
+boot_hook_add preinit_main oponwrt_wireless_init

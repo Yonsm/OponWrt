@@ -1,0 +1,5 @@
+#!/bin/sh
+[ $1 ] && SRC=$1 || SRC=/opt/etc
+[ $2 ] && DST=$2 || DST=/etc
+echo "$SRC/* => $DST"
+cp -a $SRC/* $DST
