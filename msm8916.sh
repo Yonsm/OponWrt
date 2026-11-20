@@ -45,15 +45,13 @@ awk '
 	/^# 8\./ { skip_wan = 0 }
 	!skip_wan { print }
 ' "$SCRIPT_DIR/files/etc/uci-defaults/99-custom-init" > "$WORK/files/etc/uci-defaults/99-custom-init"
+# msm8916 的默认主机名与 AP SSID 统一为 Roamer（通用模板按频段给出 Router/Router5）。
+sed -i -e "s/'Router5'/'Roamer'/g" -e "s/'Router6'/'Roamer'/g" -e "s/'Router'/'Roamer'/g" \
+	-e 's/"Router5"/"Roamer"/g' -e 's/"Router6"/"Roamer"/g' -e 's/"Router"/"Roamer"/g' \
+	"$WORK/files/etc/uci-defaults/99-custom-init"
 if [[ "$PRESET" != *+NOWING ]]; then
 	cp -a "$SCRIPT_DIR/wing/." "$WORK/files/"
 fi
-cat > "$WORK/files/etc/uci-defaults/zz-msm8916-init" <<'EOF'
-#!/bin/sh
-uci set system.@system[0].hostname='Modem'
-uci commit system
-EOF
-chmod +x "$WORK/files/etc/uci-defaults/zz-msm8916-init"
 
 # A managed STA wifi-iface makes netifd restart the phy with the iface present,
 # which crashes the WCNSS firmware (boot_exception Data Abort). Convert any such

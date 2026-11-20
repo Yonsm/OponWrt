@@ -16,6 +16,23 @@ if [ -f "$MMSVC" ]; then
 	sed -i 's|cp -f "$SRC" "$DST"|cp -f "$SRC" "$DST"; chmod +x "$DST"|' "$MMSVC"
 fi
 
+# 直接改上游默认值，不靠运行时 uci-defaults 叠加：
+# LAN 192.168.8.1 -> 192.168.2.1、hostname -> Roamer、stawan -> wwan、AP SSID -> Roamer。
+FB="$TARGET_DIR/etc/uci-defaults/99-msm89xx-firstboot"
+if [ -f "$FB" ]; then
+	sed -i -e 's/192\.168\.8\.1/192.168.2.1/g' \
+	       -e 's/hostname="\$BOARD"/hostname="Roamer"/' "$FB"
+fi
+# 保留上游的 late-STA netifd 占位接口，统一命名为 wwan（auto=0，netifd 不会拉起；
+# 上游注释把它当作 STA 的 network device，恢复它以免偏离上游设计）。
+STA="$TARGET_DIR/etc/uci-defaults/95-wifi-sta-late"
+[ -f "$STA" ] && sed -i 's/network\.stawan/network.wwan/g' "$STA"
+WIFI="$TARGET_DIR/lib/wifi/mac80211.uc"
+[ -f "$WIFI" ] && sed -i 's/"OpenWrt"/"Roamer"/' "$WIFI"
+# WISP 上联 DNS 用上级路由器下发的地址，不用写死的 8.8.8.8。
+UP="$TARGET_DIR/etc/config/uplink"
+[ -f "$UP" ] && sed -i '/option sta_dns/d' "$UP"
+
 python3 - "$TARGET_DIR" <<'PYEOF'
 import glob, json, os, sys
 
