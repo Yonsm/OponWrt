@@ -112,6 +112,36 @@ uci -q commit wifista
 echo "wisp: upstream '$1' configured; check: wpa_cli -i phy0-sta0 status"
 EOF
 chmod +x "$WORK/files/usr/bin/wisp"
+
+# USB gadget：上游 r10 的 NCM 优先 + RNDIS 回退。r9 只发 NCM，主机（如 macOS）
+# 绑不上 NCM 时网卡不可用；probe 在 attach 后检测 carrier，5 秒内没起来就重建为 RNDIS。
+GADGET="$SCRIPT_DIR/extras/msm8916-usb-gadget"
+mkdir -p "$WORK/files/usr/sbin" "$WORK/files/etc/init.d" "$WORK/files/etc/config" "$WORK/files/etc/rc.d"
+cp "$GADGET/usb-gadget" "$WORK/files/usr/sbin/usb-gadget"
+cp "$GADGET/usb-gadget-probe" "$WORK/files/usr/sbin/usb-gadget-probe"
+cp "$GADGET/usb-gadget-probe.init" "$WORK/files/etc/init.d/usb-gadget-probe"
+cp "$GADGET/usbgadget.config" "$WORK/files/etc/config/usbgadget"
+chmod +x "$WORK/files/usr/sbin/usb-gadget" "$WORK/files/usr/sbin/usb-gadget-probe" "$WORK/files/etc/init.d/usb-gadget-probe"
+ln -sf ../init.d/usb-gadget-probe "$WORK/files/etc/rc.d/S99usb-gadget-probe"
+
+# 旧镜像的 /etc/config/usbgadget 没有 net_mode（NCM-only），保留配置升级后
+# 由这个脚本补成 auto，probe 才会接管。
+cat > "$WORK/files/etc/init.d/usb-gadget-mode" <<'EOF'
+#!/bin/sh /etc/rc.common
+# Migrate an NCM-only usbgadget config to net_mode=auto before usb-gadget boots.
+START=18
+
+start() {
+	[ -x /usr/sbin/usb-gadget-probe ] || return 0
+	[ -n "$(uci -q get usbgadget.usb.net_mode)" ] && return 0
+	[ "$(uci -q get usbgadget.ncm.enabled)" = "1" ] || return 0
+	[ "$(uci -q get usbgadget.rndis.enabled)" = "1" ] && return 0
+	uci -q set usbgadget.usb.net_mode='auto'
+	uci -q commit usbgadget
+}
+EOF
+chmod +x "$WORK/files/etc/init.d/usb-gadget-mode"
+ln -sf ../init.d/usb-gadget-mode "$WORK/files/etc/rc.d/S18usb-gadget-mode"
 find "$WORK/files" -name .DS_Store -delete
 
 NOWING=""

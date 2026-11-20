@@ -1,0 +1,169 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# usb-gadget-probe - choose NCM or RNDIS from what the host actually binds.
+#
+# net_mode=auto builds NCM and nothing else.  A host with no NCM driver still
+# enumerates the device -- configuration 1 is set whatever the drivers are --
+# but it never sets the data interface to altsetting 1, so f_ncm never raises
+# carrier.  That is the signal:
+#
+#   configured + carrier 1  -> this host speaks NCM, keep it
+#   configured + carrier 0  -> it does not, rebuild with RNDIS
+#   not attached            -> nobody is there, nothing to decide
+#
+# One decision per attach.  A real unplug clears it, so the next host is
+# probed from NCM again and a unit is never left stuck in RNDIS because of
+# where it was last plugged.  The decision is written to a runtime file, not
+# to uci: net_mode stays 'auto', which is what "decide per attach" means.
+#
+# The rebuild is a teardown and a setup, so the host sees one disconnect and
+# reconnects about two seconds later -- once, on the first plug from a host
+# that cannot use NCM.
+
+SYSFS="${USB_GADGET_PROBE_SYSFS:-/sys}"
+CONFIGFS="${USB_GADGET_PROBE_CONFIGFS:-/sys/kernel/config}"
+OVERRIDE="${USB_GADGET_PROBE_OVERRIDE:-/var/run/usb-gadget/net_mode}"
+PROG="${USB_GADGET_PROBE_PROG:-/usr/sbin/usb-gadget}"
+
+# Seconds between state reads, and how long to give a host to bind the data
+# interface before calling it a host without an NCM driver.
+#
+# There is deliberately no debounce on a cable pull.  A rebuild is synchronous
+# -- switch_to() does not return until usb-gadget has finished -- so the loop
+# never observes the 'not attached' a rebuild produces, and the `seen` flag is
+# enough to ignore the re-enumeration that follows it.  A time-based debounce
+# also swallows a genuine unplug-and-replug that happens inside the window,
+# which leaves the probe decided for a host that is no longer there.
+POLL="${USB_GADGET_PROBE_POLL:-1}"
+SETTLE="${USB_GADGET_PROBE_SETTLE:-5}"
+
+log() {
+    logger -t usb-gadget-probe "$*" 2>/dev/null || true
+}
+
+gadget_dir() {
+    local name
+    name=$(uci -q get usbgadget.usb.gadget_name 2>/dev/null)
+    [ -n "$name" ] || name=g1
+    printf '%s/usb_gadget/%s\n' "$CONFIGFS" "$name"
+}
+
+net_mode() {
+    uci -q get usbgadget.usb.net_mode 2>/dev/null
+}
+
+# 'not attached' is the answer when there is no UDC at all, so the loop never
+# mistakes a missing controller for a host that is waiting.
+udc_state() {
+    local d s
+    for d in "$SYSFS"/class/udc/*; do
+        [ -r "$d/state" ] || continue
+        s=$(cat "$d/state" 2>/dev/null)
+        [ -n "$s" ] && { printf '%s\n' "$s"; return 0; }
+    done
+    printf 'not attached\n'
+}
+
+# Prints the carrier of the NCM netdev, or nothing if it cannot be read.  An
+# unreadable carrier counts as "not bound": RNDIS has a driver on every host
+# we care about, so the fallback is the safe direction to fail in.
+ncm_carrier() {
+    local dir iface
+    dir=$(gadget_dir)
+    [ -r "$dir/functions/ncm.usb0/ifname" ] || return 1
+    iface=$(cat "$dir/functions/ncm.usb0/ifname" 2>/dev/null)
+    [ -n "$iface" ] || return 1
+    [ -r "$SYSFS/class/net/$iface/carrier" ] || return 1
+    cat "$SYSFS/class/net/$iface/carrier" 2>/dev/null
+}
+
+# switch_to <ncm|rndis>
+#
+# Callers set seen=0 first: the rebuild unbinds the UDC, and that must not be
+# read as the user pulling the cable.
+switch_to() {
+    local mode="$1"
+    mkdir -p "${OVERRIDE%/*}" 2>/dev/null || true
+    printf '%s\n' "$mode" > "$OVERRIDE" 2>/dev/null \
+        || log "could not write $OVERRIDE; the rebuild will not stick"
+    log "rebuilding with $mode"
+    "$PROG" restart >/dev/null 2>&1 || log "usb-gadget restart failed"
+}
+
+main() {
+    local mode state seen=0 decided="" pinned=""
+
+    # A probe restart mid-attach must not re-decide for a host that is still
+    # plugged in: adopt the standing decision and wait for a real unplug.
+    if [ -r "$OVERRIDE" ]; then
+        decided=$(cat "$OVERRIDE" 2>/dev/null)
+        [ -n "$decided" ] && seen=1
+    fi
+
+    log "started (poll=${POLL}s settle=${SETTLE}s)"
+
+    while :; do
+        mode=$(net_mode)
+        case "$mode" in
+            auto)
+                pinned=""
+                ;;
+            *)
+                # Unset means the per-function booleans stand (a unit that
+                # predates net_mode), and ncm/rndis/both are a pin.  Either
+                # way there is nothing to decide, and a decision left over
+                # from auto must not outlive the pin.
+                if [ -z "$pinned" ]; then
+                    pinned=1
+                    log "net_mode=${mode:-unset} is not auto; not deciding"
+                fi
+                if [ -e "$OVERRIDE" ]; then
+                    rm -f "$OVERRIDE"
+                    decided=""
+                fi
+                sleep 30
+                continue
+                ;;
+        esac
+
+        state=$(udc_state)
+        case "$state" in
+            configured)
+                if [ "$seen" = 0 ]; then
+                    seen=1
+                    sleep "$SETTLE"
+                    [ "$(udc_state)" = configured ] || continue
+                    if [ -z "$decided" ]; then
+                        if [ "$(ncm_carrier)" = 1 ]; then
+                            decided=ncm
+                            log "host bound NCM; keeping it"
+                        else
+                            log "host did not bind NCM in ${SETTLE}s; falling back to RNDIS"
+                            decided=rndis
+                            seen=0
+                            switch_to rndis
+                        fi
+                    fi
+                fi
+                ;;
+            "not attached")
+                # seen=0 means the host has not enumerated since the last
+                # unplug or rebuild, so there is nothing to clear.
+                if [ "$seen" = 1 ]; then
+                    seen=0
+                    if [ -n "$decided" ] && [ "$decided" != ncm ]; then
+                        log "unplugged; back to NCM for the next host"
+                        decided=ncm
+                        switch_to ncm
+                    fi
+                    decided=""
+                    rm -f "$OVERRIDE"
+                fi
+                ;;
+        esac
+        sleep "$POLL"
+    done
+}
+
+main "$@"
