@@ -4,6 +4,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${1:?Usage: $0 <TARGET_DIR> [PO_FILE]}"
 "$SCRIPT_DIR/ui-replace.sh" "$@"
+# apk 打包的 modemmanager proto 丢了可执行位，netifd 因而报“不支持的协议类型”。
+chmod +x "$TARGET_DIR/lib/netifd/proto/modemmanager.sh" 2>/dev/null || true
+# 同一个可执行位问题还有第二处：modemmanager-proto-hotfix 在启动时用 cp -f 把
+# /usr/share/msm89xx/modemmanager.sh.hotfix 覆盖到 /lib/netifd/proto/modemmanager.sh，
+# 源文件是 644，覆盖后 proto 又变成不可执行。修源文件权限并在服务里 cp 后补 chmod。
+MMSRC="$TARGET_DIR/usr/share/msm89xx/modemmanager.sh.hotfix"
+[ -f "$MMSRC" ] && chmod +x "$MMSRC"
+MMSVC="$TARGET_DIR/etc/init.d/modemmanager-proto-hotfix"
+if [ -f "$MMSVC" ]; then
+	sed -i 's|cp -f "$SRC" "$DST"|cp -f "$SRC" "$DST"; chmod +x "$DST"|' "$MMSVC"
+fi
 
 python3 - "$TARGET_DIR" <<'PYEOF'
 import glob, json, os, sys
