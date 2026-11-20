@@ -91,6 +91,27 @@ start() {
 EOF
 chmod +x "$WORK/files/etc/init.d/wifista-migrate"
 ln -sf ../init.d/wifista-migrate "$WORK/files/etc/rc.d/S19wifista-migrate"
+
+# One-shot WISP setup: `wisp <upstream-ssid> [upstream-key]` turns the radio
+# into a station uplink (AP stays up, LAN is masqueraded through the STA).
+mkdir -p "$WORK/files/usr/bin"
+cat > "$WORK/files/usr/bin/wisp" <<'EOF'
+#!/bin/sh
+# One-shot WISP: wisp <upstream-ssid> [upstream-key]
+[ -n "$1" ] || { echo "usage: wisp <upstream-ssid> [upstream-key]" >&2; exit 1; }
+
+uci -q set wifista.main.enabled=1
+uci -q set wifista.main.ssid="$1"
+[ -n "$2" ] && uci -q set wifista.main.key="$2"
+uci -q set wifista.main.dhcp=1
+uci -q set wifista.main.uplink=1
+uci -q commit wifista
+[ -x /etc/init.d/wifi-sta-late ] && /etc/init.d/wifi-sta-late enable
+
+/etc/init.d/wifi-sta-late restart
+echo "wisp: upstream '$1' configured; check: wpa_cli -i phy0-sta0 status"
+EOF
+chmod +x "$WORK/files/usr/bin/wisp"
 find "$WORK/files" -name .DS_Store -delete
 
 NOWING=""
