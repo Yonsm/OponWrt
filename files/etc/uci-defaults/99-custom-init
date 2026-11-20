@@ -30,9 +30,9 @@ set network.globals.ula_prefix='fd00::/48'
 commit network
 EOF
 
-# 5. 默认无线 WiFi 配置（SSID: OponWrt，密码: 12345678，加密: psk2，默认开启）
+# 5. 默认无线 WiFi 配置（2.4G SSID: Router，5G SSID: Router5，密码: 12345678，加密: psk2，默认开启）
 if [ -f /lib/wifi/mac80211.uc ]; then
-	sed -i -e 's/OpenWrt/OponWrt/' \
+	sed -i -e 's/"OpenWrt"/(band_name == "5g" ? "Router5" : (band_name == "6g" ? "Router6" : "Router"))/' \
 		-e 's/0 : 1/0 : 0/' \
 		-e 's/none/psk2/' \
 		-e 's/key || ""/key || "12345678"/' /lib/wifi/mac80211.uc
@@ -45,7 +45,12 @@ if [ -f /tmp/oponwrt-wireless-firstboot ] && [ -f /etc/config/wireless ]; then
 	done
 	idx=0
 	while uci -q get wireless.@wifi-iface[$idx] >/dev/null 2>&1; do
-		uci -q set wireless.@wifi-iface[$idx].ssid='OponWrt'
+		case "$(uci -q get "wireless.$(uci -q get wireless.@wifi-iface[$idx].device).band")" in
+			5g) ssid='Router5' ;;
+			6g) ssid='Router6' ;;
+			*)  ssid='Router' ;;
+		esac
+		uci -q set wireless.@wifi-iface[$idx].ssid="$ssid"
 		uci -q set wireless.@wifi-iface[$idx].encryption='psk2'
 		uci -q set wireless.@wifi-iface[$idx].key='12345678'
 		uci -q set wireless.@wifi-iface[$idx].disabled='0'
