@@ -173,8 +173,12 @@ fi
 if [ -f "$M/luci-mod-system.json" ]; then
 	sed -i.bak \
 		-e 's/"title": ".*LED.*Configuration"/"title": "灯光配置"/g' \
+		-e 's/"title": "LED Setup"/"title": "灯光设置"/g' \
 		-e 's/"title": "Backup \/ Flash Firmware"/"title": "备份更新"/g' \
 		-e 's/"title": "Reboot"/"title": "重新启动"/g' "$M/luci-mod-system.json" && rm -f "$M/luci-mod-system.json.bak"
+fi
+if [ -f "$M/luci-app-led-setup.json" ]; then
+	sed -i.bak 's/"title": "LED Setup"/"title": "灯光设置"/g' "$M/luci-app-led-setup.json" && rm -f "$M/luci-app-led-setup.json.bak"
 fi
 if [ -f "$M/luci-app-commands.json" ]; then
 	sed -i.bak 's/"title": "Custom Commands"/"title": "自定命令"/g' "$M/luci-app-commands.json" && rm -f "$M/luci-app-commands.json.bak"

@@ -9,6 +9,9 @@ msgstr "灯光配置"
 msgid "LED Configuration"
 msgstr "灯光配置"
 
+msgid "LED Setup"
+msgstr "灯光设置"
+
 msgid "Backup / Flash Firmware"
 msgstr "备份更新"
 
