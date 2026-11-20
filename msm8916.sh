@@ -54,6 +54,45 @@ uci set system.@system[0].hostname='Modem'
 uci commit system
 EOF
 chmod +x "$WORK/files/etc/uci-defaults/zz-msm8916-init"
+
+# A managed STA wifi-iface makes netifd restart the phy with the iface present,
+# which crashes the WCNSS firmware (boot_exception Data Abort). Convert any such
+# iface to the upstream wifista service before netifd touches the phy.
+mkdir -p "$WORK/files/etc/init.d" "$WORK/files/etc/rc.d"
+cat > "$WORK/files/etc/init.d/wifista-migrate" <<'EOF'
+#!/bin/sh /etc/rc.common
+# Runs before network: a phy restart with a managed STA iface present crashes
+# the WCNSS firmware, so turn it into the late wifista STA instead.
+START=19
+
+start() {
+	[ -f /etc/config/wireless ] || return 0
+	local idx=0 changed=0 ssid key
+	while uci -q get "wireless.@wifi-iface[$idx]" >/dev/null 2>&1; do
+		[ "$(uci -q get "wireless.@wifi-iface[$idx].mode")" = "sta" ] || {
+			idx=$((idx + 1))
+			continue
+		}
+		ssid=$(uci -q get "wireless.@wifi-iface[$idx].ssid")
+		key=$(uci -q get "wireless.@wifi-iface[$idx].key")
+		if uci -q get wifista.main >/dev/null 2>&1; then
+			[ -n "$ssid" ] && uci -q set wifista.main.ssid="$ssid"
+			[ -n "$key" ] && uci -q set wifista.main.key="$key"
+			uci -q set wifista.main.enabled=1
+		fi
+		uci -q delete "wireless.@wifi-iface[$idx]"
+		changed=1
+	done
+	if [ "$changed" = 1 ]; then
+		uci -q commit wireless
+		uci -q get wifista.main >/dev/null 2>&1 && uci -q commit wifista
+		[ -x /etc/init.d/wifi-sta-late ] && /etc/init.d/wifi-sta-late enable
+	fi
+	return 0
+}
+EOF
+chmod +x "$WORK/files/etc/init.d/wifista-migrate"
+ln -sf ../init.d/wifista-migrate "$WORK/files/etc/rc.d/S19wifista-migrate"
 find "$WORK/files" -name .DS_Store -delete
 
 NOWING=""
@@ -62,7 +101,7 @@ python3 "$SCRIPT_DIR/prepare.py" "$IB" "$OPENWRT_SERIES" aarch64_generic $NOWING
 
 # 目标默认包：chipidea 驱动已内建于内核，kmod-usb-chipidea 仅 ath79 提供；
 # 默认 ip-tiny 与 Wing 所需 ip-full 互斥。
-VALID_PKGS="-luci-app-firmware-upgrade -msm89xx-firmware-upgrade luci-i18n-filemanager-zh-cn luci-i18n-wol-zh-cn -luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman -kmod-usb-chipidea -ip-tiny"
+VALID_PKGS="-luci-app-firmware-upgrade -msm89xx-firmware-upgrade luci-i18n-filemanager-zh-cn luci-i18n-wol-zh-cn -luci-theme-feelgood -samba4-server -luci-app-samba4 -ksmbd-server -luci-app-ksmbd -dockerd -luci-app-dockerman -kmod-usb-chipidea -ip-tiny -tailscale -luci-app-tailscale"
 for pkg in $FINAL_PACKAGES; do
 	case "$pkg" in
 	chinadns-ng|ipt2socks|simple-obfs-client|shadowsocksr-libev-ssr-redir|trojan|tcping)

@@ -1,6 +1,7 @@
 #!/bin/sh
 
-IPADDR=$(ifconfig -a | grep 'inet ' | grep -v 127.0.0.1 | awk '{print $2}' | sed 's/addr://' | tr '\n' ' ')
+# Only procfs: ifconfig/ip block forever when rtnl_lock is stuck (wcn36xx crash).
+IPADDR=$(awk '/^[ \t]*\|--/ { addr = $2 } /host LOCAL/ { print addr }' /proc/net/fib_trie 2>/dev/null | grep -v '^127\.' | sort -u | tr '\n' ' ')
 
 if type sensors >/dev/null 2>&1; then
 	CPUTMP=$(sensors 2>/dev/null | grep -Eo '\+[0-9]+.+C ' | sed ':a;N;$!ba;s/\n/ /g;s/+//g')
